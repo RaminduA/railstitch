@@ -210,7 +210,33 @@ func (a *API) CreateBooking(w http.ResponseWriter, r *http.Request, tripID int) 
 		return
 	}
 
-	writeJSON(w, 201, booked)
+	enriched, err := a.getBookingByID(booked.ID)
+	if err != nil {
+		writeJSON(w, 201, booked)
+		return
+	}
+	writeJSON(w, 201, enriched)
+}
+
+func (a *API) getBookingByID(id int) (*models.Booking, error) {
+	var b models.Booking
+	err := a.DB.QueryRow(`
+		SELECT b.id, b.trip_id, b.seat_id, c.coach_number, s.seat_number,
+		       b.origin_station_id, b.dest_station_id, os.name, ds.name,
+		       b.passenger_name, b.fare, b.status, b.created_at
+		FROM bookings b
+		JOIN seats s ON s.id = b.seat_id
+		JOIN coaches c ON c.id = s.coach_id
+		JOIN stations os ON os.id = b.origin_station_id
+		JOIN stations ds ON ds.id = b.dest_station_id
+		WHERE b.id = $1`, id,
+	).Scan(&b.ID, &b.TripID, &b.SeatID, &b.CoachNumber, &b.SeatNumber,
+		&b.OriginStationID, &b.DestStationID, &b.OriginName, &b.DestName,
+		&b.PassengerName, &b.Fare, &b.Status, &b.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
 }
 
 func (a *API) tryInsertBooking(tripID, seatID int, origin, dest stationInfo, passenger string, fareAmt float64) (*models.Booking, error) {
