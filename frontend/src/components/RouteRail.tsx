@@ -80,7 +80,6 @@ export function RouteRail({ stations, originId, destId, onSelect }: Props) {
               }}
               aria-pressed={isSelected}
             >
-              {/* generous invisible hit-area, easier to tap than the dot itself */}
               <circle cx={x} cy={TRACK_Y} r={16} fill="transparent" />
               <circle
                 cx={x}

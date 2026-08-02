@@ -144,7 +144,7 @@ func (a *API) tryPromoteWaitlist(tripID int) (bool, error) {
 		}
 
 		distance := dest.DistanceKm - origin.DistanceKm
-		quotedFare := fare.Quote(distance, "reserved")
+		quotedFare := fare.Quote(distance, "reserved", origin.Seq, dest.Seq)
 
 		for _, seatID := range candidates {
 			booking, err := a.tryInsertBooking(tripID, seatID, origin, dest, p.passenger, quotedFare)

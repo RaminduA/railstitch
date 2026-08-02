@@ -63,7 +63,7 @@ func (a *API) Availability(w http.ResponseWriter, r *http.Request, tripID int) {
 	}
 
 	distance := dest.DistanceKm - origin.DistanceKm
-	quotedFare := fare.Quote(distance, class)
+	quotedFare := fare.Quote(distance, class, origin.Seq, dest.Seq)
 
 	if class != "reserved" {
 		writeJSON(w, 200, map[string]interface{}{
@@ -147,7 +147,7 @@ func (a *API) CreateBooking(w http.ResponseWriter, r *http.Request, tripID int) 
 	}
 
 	distance := dest.DistanceKm - origin.DistanceKm
-	quotedFare := fare.Quote(distance, req.Class)
+	quotedFare := fare.Quote(distance, req.Class, origin.Seq, dest.Seq)
 
 	var candidateSeatIDs []int
 	if req.SeatID != 0 {
@@ -193,8 +193,6 @@ func (a *API) CreateBooking(w http.ResponseWriter, r *http.Request, tripID int) 
 			break
 		}
 		if db.IsUniqueOrExclusionViolation(err) {
-			// Someone else took this exact seat/segment first.
-			// Try the next candidate rather than failing the whole request.
 			continue
 		}
 		writeErr(w, 500, "failed to create booking")

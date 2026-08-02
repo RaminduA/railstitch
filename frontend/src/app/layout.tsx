@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter, IBM_Plex_Mono } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 import { SiteHeader } from "@/components/SiteHeader";
 
@@ -43,7 +44,9 @@ export default function RootLayout({
         <footer className="border-t border-rail-green/15 mt-auto">
           <div className="max-w-4xl mx-auto px-6 py-6 flex items-center justify-between font-mono text-xs text-ink/50">
             <span>Railstitch &middot; Colombo Fort &ndash; Badulla</span>
-            <span>Ceylon Government Railway, Upcountry Line</span>
+            <Link href="/admin" className="hover:text-brass transition-colors">
+              Department view
+            </Link>
           </div>
         </footer>
       </body>
