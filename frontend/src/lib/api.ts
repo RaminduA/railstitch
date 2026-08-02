@@ -1,4 +1,12 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+// In local dev, NEXT_PUBLIC_API_URL is set to http://localhost:8080.
+// In Docker, server components use INTERNAL_API_URL (http://api:8080 direct to the
+// Go container). Client components in Docker get an empty string, so their
+// fetch calls go to the same origin and the Next.js rewrite proxy forwards them
+// to the Go API -- no double /api prefix, no CORS.
+const isServer = typeof window === "undefined";
+const API_URL = isServer
+  ? (process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080")
+  : (process.env.NEXT_PUBLIC_API_URL ?? "");
 
 export type Station = {
   id: number;
