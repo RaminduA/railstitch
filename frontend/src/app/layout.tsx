@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+import { SiteHeader } from "@/components/SiteHeader";
 
 const fraunces = Fraunces({
   variable: "--font-fraunces",
@@ -37,7 +38,14 @@ export default function RootLayout({
       className={`${fraunces.variable} ${inter.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-paper text-ink">
+        <SiteHeader />
         {children}
+        <footer className="border-t border-rail-green/15 mt-auto">
+          <div className="max-w-4xl mx-auto px-6 py-6 flex items-center justify-between font-mono text-xs text-ink/50">
+            <span>Railstitch &middot; Colombo Fort &ndash; Badulla</span>
+            <span>Ceylon Government Railway, Upcountry Line</span>
+          </div>
+        </footer>
       </body>
     </html>
   );

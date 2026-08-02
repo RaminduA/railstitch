@@ -9,36 +9,44 @@ type Props = {
   onSelect: (stationId: number) => void;
 };
 
-const PAD = 36;
-const WIDTH = 900;
-const HEIGHT = 130;
+const PAD_LEFT = 96;
+const PAD_RIGHT = 40;
+const BASE_TRACK_WIDTH = 760;
+const HEIGHT = 150;
 const TRACK_Y = 56;
-const TRACK_WIDTH = WIDTH - PAD * 2;
+const MIN_STATION_GAP = 70;
 
 export function RouteRail({ stations, originId, destId, onSelect }: Props) {
   if (stations.length === 0) return null;
   const maxDistance = stations[stations.length - 1].distance_km;
 
-  const xFor = (distanceKm: number) =>
-    PAD + (distanceKm / maxDistance) * TRACK_WIDTH;
+  const xs: number[] = [];
+  let prevX = -Infinity;
+  for (const s of stations) {
+    let x = PAD_LEFT + (s.distance_km / maxDistance) * BASE_TRACK_WIDTH;
+    if (x < prevX + MIN_STATION_GAP) x = prevX + MIN_STATION_GAP;
+    xs.push(x);
+    prevX = x;
+  }
+  const width = xs[xs.length - 1] + PAD_RIGHT;
+  const xById = new Map(stations.map((s, i) => [s.id, xs[i]]));
 
-  const origin = stations.find((s) => s.id === originId) ?? null;
-  const dest = stations.find((s) => s.id === destId) ?? null;
-  const segX1 = origin ? xFor(origin.distance_km) : null;
-  const segX2 = dest ? xFor(dest.distance_km) : null;
+  const segX1 = originId !== null ? xById.get(originId) ?? null : null;
+  const segX2 = destId !== null ? xById.get(destId) ?? null : null;
 
   return (
     <div className="w-full overflow-x-auto">
       <svg
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        className="w-full min-w-160 h-32 select-none"
+        viewBox={`0 0 ${width} ${HEIGHT}`}
+        style={{ width: `${Math.max(width, 640)}px`, height: `${HEIGHT}px` }}
+        className="select-none"
         role="group"
         aria-label="Route from Colombo Fort to Badulla. Tap your boarding station, then your alighting station."
       >
         <line
-          x1={PAD}
+          x1={PAD_LEFT}
           y1={TRACK_Y}
-          x2={WIDTH - PAD}
+          x2={width - PAD_RIGHT}
           y2={TRACK_Y}
           className="stroke-rail-green/25"
           strokeWidth={4}
@@ -57,8 +65,8 @@ export function RouteRail({ stations, originId, destId, onSelect }: Props) {
           />
         )}
 
-        {stations.map((s) => {
-          const x = xFor(s.distance_km);
+        {stations.map((s, i) => {
+          const x = xs[i];
           const isSelected = s.id === originId || s.id === destId;
           return (
             <g

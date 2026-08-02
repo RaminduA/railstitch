@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { api } from "@/lib/api";
 import { TripBooking } from "./TripBooking";
@@ -21,6 +22,12 @@ export default async function TripPage({
   return (
     <main className="flex-1 px-6 py-12">
       <div className="max-w-4xl mx-auto">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1 font-mono text-xs uppercase tracking-wide text-ink/50 hover:text-brass transition-colors mb-6"
+        >
+          &larr; All departures
+        </Link>
         <p className="font-mono text-xs tracking-[0.2em] uppercase text-rail-green/70 mb-2">
           {new Date(trip.service_date).toLocaleDateString(undefined, {
             weekday: "long",
