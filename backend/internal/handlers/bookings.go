@@ -126,7 +126,19 @@ func (a *API) Availability(w http.ResponseWriter, r *http.Request, tripID int) {
 		           WHERE b.trip_id = $1 AND b.seat_id = s.id
 		           AND b.status = 'confirmed'
 		           AND b.seg && int4range($2, $3)
-		       ) AS available
+		       ) AS available,
+		       (SELECT os.name FROM bookings b
+		        JOIN stations os ON os.id = b.origin_station_id
+		        WHERE b.trip_id = $1 AND b.seat_id = s.id
+		        AND b.status = 'confirmed'
+		        AND b.seg && int4range($2, $3)
+		        LIMIT 1) AS blocked_origin,
+		       (SELECT ds.name FROM bookings b
+		        JOIN stations ds ON ds.id = b.dest_station_id
+		        WHERE b.trip_id = $1 AND b.seat_id = s.id
+		        AND b.status = 'confirmed'
+		        AND b.seg && int4range($2, $3)
+		        LIMIT 1) AS blocked_dest
 		FROM seats s
 		JOIN coaches c ON c.id = s.coach_id
 		WHERE c.route_id = $4 AND c.class != 'unreserved'
@@ -153,8 +165,9 @@ func (a *API) Availability(w http.ResponseWriter, r *http.Request, tripID int) {
 		var coachNumber, class string
 		var displayOrder, seatNumber int
 		var available bool
+		var blockedOrigin, blockedDest *string
 		if err := rows.Scan(&seatID, &coachID, &coachNumber, &class,
-			&displayOrder, &seatNumber, &available); err != nil {
+			&displayOrder, &seatNumber, &available, &blockedOrigin, &blockedDest); err != nil {
 			writeErr(w, 500, "failed to scan seat")
 			return
 		}
@@ -170,12 +183,21 @@ func (a *API) Availability(w http.ResponseWriter, r *http.Request, tripID int) {
 			}
 			coachOrder = append(coachOrder, coachID)
 		}
+		var bOrigin, bDest string
+		if blockedOrigin != nil {
+			bOrigin = *blockedOrigin
+		}
+		if blockedDest != nil {
+			bDest = *blockedDest
+		}
 		coachMap[coachID].Seats = append(coachMap[coachID].Seats, models.SeatWithStatus{
-			SeatID:      seatID,
-			CoachNumber: coachNumber,
-			CoachClass:  class,
-			SeatNumber:  seatNumber,
-			Available:   available,
+			SeatID:        seatID,
+			CoachNumber:   coachNumber,
+			BlockedOrigin: bOrigin,
+			BlockedDest:   bDest,
+			CoachClass:    class,
+			SeatNumber:    seatNumber,
+			Available:     available,
 		})
 	}
 

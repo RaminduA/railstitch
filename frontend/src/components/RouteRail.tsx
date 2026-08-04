@@ -120,6 +120,16 @@ export function RouteRail({ stations, stops, selectedIds, direction, onSelect }:
               aria-pressed={isSelected}
               aria-disabled={isDisabled || isPassed}
             >
+              {/* Tooltip via SVG title element */}
+              <title>
+                {isDisabled
+                  ? "This train doesn't stop at this station"
+                  : isPassed
+                  ? "Train has already departed from this station"
+                  : isSelected
+                  ? s.name
+                  : `Select ${s.name}`}
+              </title>
               {/* Hit area */}
               <circle cx={x} cy={TRACK_Y} r={14} fill="transparent" />
 

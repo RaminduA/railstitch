@@ -30,7 +30,6 @@ type Trip struct {
 	OvernightInbound  bool   `json:"overnight_inbound"`
 }
 
-// TripStop is one scheduled stop of a trip.
 type TripStop struct {
 	ID            int     `json:"id"`
 	TripID        int     `json:"trip_id"`
@@ -46,11 +45,13 @@ type TripStop struct {
 }
 
 type SeatWithStatus struct {
-	SeatID      int    `json:"seat_id"`
-	CoachNumber string `json:"coach_number"`
-	CoachClass  string `json:"coach_class"`
-	SeatNumber  int    `json:"seat_number"`
-	Available   bool   `json:"available"`
+	SeatID        int    `json:"seat_id"`
+	CoachNumber   string `json:"coach_number"`
+	CoachClass    string `json:"coach_class"`
+	SeatNumber    int    `json:"seat_number"`
+	Available     bool   `json:"available"`
+	BlockedOrigin string `json:"blocked_origin,omitempty"`
+	BlockedDest   string `json:"blocked_dest,omitempty"`
 }
 
 type AvailabilityResponse struct {

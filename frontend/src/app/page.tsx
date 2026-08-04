@@ -4,6 +4,9 @@ import { api } from "@/lib/api";
 export default async function HomePage() {
   const trips = await api.getTrips(1);
 
+  // Deduplicate to unique train names for the top-level cards
+  const trainNames = [...new Set(trips.map((t) => t.name))];
+
   return (
     <main className="flex-1 flex flex-col items-center px-6 py-16">
       <div className="max-w-2xl w-full">
@@ -19,37 +22,47 @@ export default async function HomePage() {
         </p>
 
         <h2 className="font-mono text-xs tracking-[0.15em] uppercase text-ink/50 mb-3">
-          Upcoming departures
+          Express services
         </h2>
         <ul className="flex flex-col gap-3">
-          {trips.map((trip) => (
-            <li key={trip.id}>
-              <Link
-                href={`/trips/${trip.id}`}
-                className="flex items-center justify-between rounded-lg border border-rail-green/15 bg-white/40 px-5 py-4 hover:border-brass hover:bg-white/70 transition-colors"
-              >
-                <div>
-                  <span className="font-display text-xl text-rail-green">
-                    {trip.name}
+          {trainNames.map((name) => {
+            const slug = name.toLowerCase().replace(/\s+/g, "-");
+            const trainTrips = trips.filter((t) => t.name === name);
+            const nextOutbound = trainTrips.find((t) => t.direction === "outbound");
+            const nextInbound = trainTrips.find((t) => t.direction === "inbound");
+            return (
+              <li key={name}>
+                <Link
+                  href={`/trains/${slug}`}
+                  className="flex items-center justify-between rounded-lg border border-rail-green/15 bg-white/40 px-5 py-5 hover:border-brass hover:bg-white/70 transition-colors group"
+                >
+                  <div>
+                    <span className="font-display text-2xl text-rail-green group-hover:text-rail-green">
+                      {name}
+                    </span>
+                    <div className="flex gap-3 mt-1.5">
+                      {nextOutbound && (
+                        <span className="font-mono text-xs text-ink/50">
+                          Colombo Fort → Badulla
+                        </span>
+                      )}
+                      {nextOutbound && nextInbound && (
+                        <span className="font-mono text-xs text-ink/30">·</span>
+                      )}
+                      {nextInbound && (
+                        <span className="font-mono text-xs text-ink/50">
+                          Badulla → Colombo Fort
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <span className="font-mono text-xs text-ink/40 group-hover:text-brass transition-colors">
+                    View schedule →
                   </span>
-                  <span className={`ml-3 font-mono text-xs px-2 py-0.5 rounded-full ${
-                    trip.direction === "outbound"
-                      ? "bg-rail-green/10 text-rail-green"
-                      : "bg-brass/10 text-brass"
-                  }`}>
-                    {trip.direction === "outbound" ? "→ Badulla" : "→ Colombo"}
-                  </span>
-                </div>
-                <span className="font-mono text-sm text-ink/60">
-                  {new Date(trip.service_date).toLocaleDateString(undefined, {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </span>
-              </Link>
-            </li>
-          ))}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </main>

@@ -8,7 +8,15 @@ export function getMyBookings(): Booking[] {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    
+    return parsed.filter(
+      (b: unknown) =>
+        b &&
+        typeof b === "object" &&
+        "coach_class" in b &&
+        "passenger_type" in b,
+    );
   } catch {
     return [];
   }

@@ -42,6 +42,8 @@ export type SeatWithStatus = {
   coach_class: string;
   seat_number: number;
   available: boolean;
+  blocked_origin?: string;
+  blocked_dest?: string;
 };
 
 export type CoachWithSeats = {
