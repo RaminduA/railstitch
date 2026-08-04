@@ -67,6 +67,7 @@ func main() {
 		})
 
 		r.Get("/trips", api.ListTrips)
+		r.Post("/trips/find-or-create", api.FindOrCreateTrip)
 
 		r.Route("/trips/{tripID}", func(r chi.Router) {
 			r.Get("/stops", func(w http.ResponseWriter, r *http.Request) {
@@ -134,6 +135,15 @@ func main() {
 				return
 			}
 			api.CancelBooking(w, r, id)
+		})
+
+		// Days off management
+		r.Get("/admin/days-off", api.ListDaysOff)
+		r.Post("/admin/days-off", api.AddDayOff)
+		r.Get("/admin/days-off/range", api.DaysOffInRange)
+		r.Delete("/admin/days-off/{day}", func(w http.ResponseWriter, r *http.Request) {
+			day := chi.URLParam(r, "day")
+			api.RemoveDayOff(w, r, day)
 		})
 
 		r.Get("/admin/trips/{tripID}/summary", func(w http.ResponseWriter, r *http.Request) {

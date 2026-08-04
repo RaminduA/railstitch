@@ -110,6 +110,13 @@ export type TripSummary = {
   leg_occupancy: LegOccupancy[];
 };
 
+export type DayOff = {
+  id: number;
+  day: string;
+  reason: string;
+  created_at: string;
+};
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -199,4 +206,30 @@ export const api = {
 
   getTripSummary: (tripId: number) =>
     request<TripSummary>(`/api/admin/trips/${tripId}/summary`),
+
+  findOrCreateTrip: (payload: {
+    train_name: string;
+    service_date: string;
+    direction: "outbound" | "inbound";
+  }) =>
+    request<Trip>(`/api/trips/find-or-create`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  getDaysOff: () => request<DayOff[]>(`/api/admin/days-off`),
+
+  getDaysOffInRange: (from: string, to: string) =>
+    request<string[]>(`/api/admin/days-off/range?from=${from}&to=${to}`),
+
+  addDayOff: (day: string, reason: string) =>
+    request<DayOff>(`/api/admin/days-off`, {
+      method: "POST",
+      body: JSON.stringify({ day, reason }),
+    }),
+
+  removeDayOff: (day: string) =>
+    request<{ deleted: boolean }>(`/api/admin/days-off/${day}`, {
+      method: "DELETE",
+    }),
 };

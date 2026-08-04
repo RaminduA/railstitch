@@ -14,6 +14,14 @@ export default async function AdminPage() {
           Occupancy &amp; revenue
         </h1>
 
+        <Link
+          href="/admin/days-off"
+          className="flex items-center justify-between rounded-lg border border-rail-green/15 bg-white/40 px-5 py-4 mb-4 hover:border-brass hover:bg-white/70 transition-colors"
+        >
+          <span className="font-display text-xl text-rail-green">Days off</span>
+          <span className="font-mono text-sm text-ink/60">Manage blocked dates</span>
+        </Link>
+
         <div className="flex flex-col gap-3">
           {trips.map((trip) => (
             <Link

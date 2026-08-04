@@ -331,12 +331,12 @@ function CoachMap({
           <span className="font-mono text-[9px] uppercase tracking-widest text-ink/40">Front</span>
         </div>
 
-        {/* Seat grid with aisle */}
+        {/* Seat grid with aisle — fixed seat widths so aisle is proportionally realistic */}
         <div className="px-3 py-2 flex flex-col gap-1.5">
           {/* Column headers */}
           <div
             className="grid items-center text-center"
-            style={{ gridTemplateColumns: `repeat(${left}, 1fr) 16px repeat(${right}, 1fr)` }}
+            style={{ gridTemplateColumns: `repeat(${left}, 44px) 36px repeat(${right}, 44px)` }}
           >
             {Array.from({ length: left }).map((_, i) => (
               <span key={`lh-${i}`} className="font-mono text-[9px] text-ink/30 uppercase">
@@ -355,7 +355,7 @@ function CoachMap({
             <div
               key={rowIdx}
               className="grid items-center gap-1"
-              style={{ gridTemplateColumns: `repeat(${left}, 1fr) 16px repeat(${right}, 1fr)` }}
+              style={{ gridTemplateColumns: `repeat(${left}, 44px) 36px repeat(${right}, 44px)` }}
             >
               {rowSeats.slice(0, left).map((seat) => (
                 <SeatButton
@@ -370,7 +370,7 @@ function CoachMap({
               ))}
               {/* Aisle */}
               <div className="h-full flex items-center justify-center">
-                <div className="w-px h-full bg-ink/10" />
+                <div className="w-4 h-full border-l border-r border-ink/10 bg-ink/[0.03]" />
               </div>
               {rowSeats.slice(left).map((seat) => (
                 <SeatButton
