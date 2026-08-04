@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+:root {
+  /* Ceylon railway palette: aged ticket paper, tea-estate green, brass fittings */
+  --color-paper: #EDE3C8;
+  --color-paper-dim: #E2D5B3;
+  --color-rail-green: #1F3B2C;
+  --color-rail-green-dim: #16291F;
+  --color-brass: #C08A2E;
+  --color-brass-bright: #D9A23F;
+  --color-signal-rust: #A83C34;
+  --color-ink: #23201B;
+  --color-mist: #A9BCA8;
+}
+
+@theme inline {
+  --color-paper: var(--color-paper);
+  --color-paper-dim: var(--color-paper-dim);
+  --color-rail-green: var(--color-rail-green);
+  --color-rail-green-dim: var(--color-rail-green-dim);
+  --color-brass: var(--color-brass);
+  --color-brass-bright: var(--color-brass-bright);
+  --color-signal-rust: var(--color-signal-rust);
+  --color-ink: var(--color-ink);
+  --color-mist: var(--color-mist);
+
+  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-plex-mono);
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}

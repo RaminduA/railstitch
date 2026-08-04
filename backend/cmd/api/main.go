@@ -22,12 +22,8 @@ func getenv(key, fallback string) string {
 }
 
 func intParam(r *http.Request, name string) (int, bool) {
-	v := chi.URLParam(r, name)
-	n, err := strconv.Atoi(v)
-	if err != nil {
-		return 0, false
-	}
-	return n, true
+	n, err := strconv.Atoi(chi.URLParam(r, name))
+	return n, err == nil
 }
 
 func main() {
@@ -71,8 +67,17 @@ func main() {
 		})
 
 		r.Get("/trips", api.ListTrips)
+		r.Post("/trips/find-or-create", api.FindOrCreateTrip)
 
 		r.Route("/trips/{tripID}", func(r chi.Router) {
+			r.Get("/stops", func(w http.ResponseWriter, r *http.Request) {
+				id, ok := intParam(r, "tripID")
+				if !ok {
+					http.Error(w, "invalid trip id", 400)
+					return
+				}
+				api.ListTripStops(w, r, id)
+			})
 			r.Get("/availability", func(w http.ResponseWriter, r *http.Request) {
 				id, ok := intParam(r, "tripID")
 				if !ok {
@@ -115,6 +120,14 @@ func main() {
 			})
 		})
 
+		r.Get("/bookings/{bookingID}", func(w http.ResponseWriter, r *http.Request) {
+			id, ok := intParam(r, "bookingID")
+			if !ok {
+				http.Error(w, "invalid booking id", 400)
+				return
+			}
+			api.GetBooking(w, r, id)
+		})
 		r.Delete("/bookings/{bookingID}", func(w http.ResponseWriter, r *http.Request) {
 			id, ok := intParam(r, "bookingID")
 			if !ok {
@@ -122,6 +135,15 @@ func main() {
 				return
 			}
 			api.CancelBooking(w, r, id)
+		})
+
+		// Days off management
+		r.Get("/admin/days-off", api.ListDaysOff)
+		r.Post("/admin/days-off", api.AddDayOff)
+		r.Get("/admin/days-off/range", api.DaysOffInRange)
+		r.Delete("/admin/days-off/{day}", func(w http.ResponseWriter, r *http.Request) {
+			day := chi.URLParam(r, "day")
+			api.RemoveDayOff(w, r, day)
 		})
 
 		r.Get("/admin/trips/{tripID}/summary", func(w http.ResponseWriter, r *http.Request) {

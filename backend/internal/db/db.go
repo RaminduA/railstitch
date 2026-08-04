@@ -9,7 +9,7 @@ import (
 	"github.com/lib/pq"
 )
 
-// Connect establishes a connection to the PostgreSQL database.
+// Connect establishes a connection to the PostgreSQL database
 func Connect(dsn string) (*sql.DB, error) {
 	conn, err := sql.Open("postgres", dsn)
 	if err != nil {

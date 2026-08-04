@@ -16,3 +16,9 @@ frontend/.env*
 # OS/editor cruft
 .DS_Store
 *.swp
+
+# Patch files
+*.patch
+
+# Rejects
+*.rej
