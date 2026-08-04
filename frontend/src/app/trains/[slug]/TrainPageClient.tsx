@@ -15,10 +15,15 @@ const MONTHS = [
   "January","February","March","April","May","June",
   "July","August","September","October","November","December",
 ];
-const DAYS = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+const DAYS = ["Mo","Tu","We","Th","Fr","Sa","Su"];
 
 function toYMD(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  // Use local date parts to avoid UTC offset shifting the date backwards
+  // (Sri Lanka is UTC+5:30, so midnight local = 18:30 previous day UTC)
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function startOfDay(d: Date): Date {
@@ -65,7 +70,9 @@ export function TrainPageClient({ trainName, outboundStops, inboundStops }: Prop
     const first = new Date(calYear, calMonth, 1);
     const last = new Date(calYear, calMonth + 1, 0);
     const cells: (Date | null)[] = [];
-    for (let i = 0; i < first.getDay(); i++) cells.push(null);
+    // Monday-start: Sunday (0) becomes offset 6, Monday (1) becomes 0, etc.
+    const offset = (first.getDay() + 6) % 7;
+    for (let i = 0; i < offset; i++) cells.push(null);
     for (let d = 1; d <= last.getDate(); d++) cells.push(new Date(calYear, calMonth, d));
     return cells;
   }

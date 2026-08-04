@@ -1,9 +1,21 @@
 import Link from "next/link";
-import { api } from "@/lib/api";
 
-export default async function AdminPage() {
-  const trips = await api.getTrips(1);
+const ADMIN_CARDS = [
+  {
+    href: "/admin/occupancy",
+    title: "Occupancy & Revenue",
+    description: "View booking counts, revenue, and per-leg occupancy for any trip",
+    icon: "📊",
+  },
+  {
+    href: "/admin/days-off",
+    title: "Days Off",
+    description: "Block specific dates when trains are not running",
+    icon: "📅",
+  },
+];
 
+export default function AdminPage() {
   return (
     <main className="flex-1 px-6 py-12">
       <div className="max-w-3xl mx-auto">
@@ -11,33 +23,22 @@ export default async function AdminPage() {
           Department view
         </p>
         <h1 className="font-display text-4xl text-rail-green mb-8">
-          Occupancy &amp; revenue
+          Admin panel
         </h1>
 
-        <Link
-          href="/admin/days-off"
-          className="flex items-center justify-between rounded-lg border border-rail-green/15 bg-white/40 px-5 py-4 mb-4 hover:border-brass hover:bg-white/70 transition-colors"
-        >
-          <span className="font-display text-xl text-rail-green">Days off</span>
-          <span className="font-mono text-sm text-ink/60">Manage blocked dates</span>
-        </Link>
-
-        <div className="flex flex-col gap-3">
-          {trips.map((trip) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {ADMIN_CARDS.map((card) => (
             <Link
-              key={trip.id}
-              href={`/admin/trips/${trip.id}`}
-              className="flex items-center justify-between rounded-lg border border-rail-green/15 bg-white/40 px-5 py-4 hover:border-brass hover:bg-white/70 transition-colors"
+              key={card.href}
+              href={card.href}
+              className="flex flex-col rounded-xl border border-rail-green/15 bg-white/40 px-6 py-5 hover:border-brass hover:bg-white/70 transition-colors group"
             >
-              <span className="font-display text-xl text-rail-green">
-                {trip.name}
+              <span className="text-2xl mb-3">{card.icon}</span>
+              <span className="font-display text-xl text-rail-green group-hover:text-rail-green mb-1">
+                {card.title}
               </span>
-              <span className="font-mono text-sm text-ink/60">
-                {new Date(trip.service_date).toLocaleDateString(undefined, {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                })}
+              <span className="font-mono text-xs text-ink/50">
+                {card.description}
               </span>
             </Link>
           ))}

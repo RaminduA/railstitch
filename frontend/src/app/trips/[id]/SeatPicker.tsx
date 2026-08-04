@@ -331,8 +331,8 @@ function CoachMap({
           <span className="font-mono text-[9px] uppercase tracking-widest text-ink/40">Front</span>
         </div>
 
-        {/* Seat grid with aisle — fixed seat widths so aisle is proportionally realistic */}
-        <div className="px-3 py-2 flex flex-col gap-1.5">
+        {/* Seat grid centered horizontally inside the full-width coach diagram */}
+        <div className="px-3 py-2 flex flex-col items-center gap-1.5">
           {/* Column headers */}
           <div
             className="grid items-center text-center"
