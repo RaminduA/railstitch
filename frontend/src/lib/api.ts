@@ -65,6 +65,9 @@ export type AvailabilityResponse = {
 export type Booking = {
   id: number;
   trip_id: number;
+  trip_name?: string;
+  service_date?: string;
+  direction?: "outbound" | "inbound";
   seat_id: number;
   coach_number?: string;
   coach_class?: string;
@@ -78,6 +81,8 @@ export type Booking = {
   fare: number;
   status: "confirmed" | "cancelled";
   created_at: string;
+  verification_token?: string;
+  user_id?: string;
 };
 
 export type WaitlistEntry = {
@@ -167,6 +172,7 @@ export const api = {
       passenger_type: string;
       seat_id?: number;
       class?: string;
+      user_id?: string;
     },
   ) =>
     request<Booking>(`/api/trips/${tripId}/bookings`, {
@@ -206,6 +212,14 @@ export const api = {
 
   getTripSummary: (tripId: number) =>
     request<TripSummary>(`/api/admin/trips/${tripId}/summary`),
+
+  getUserBookings: (userId: string) =>
+    request<Booking[]>(`/api/users/${userId}/bookings`),
+
+  verifyBooking: (bookingId: number, token: string) =>
+    request<{ booking: Booking; valid: boolean }>(
+      `/api/bookings/${bookingId}/verify?token=${token}`,
+    ),
 
   findOrCreateTrip: (payload: {
     train_name: string;

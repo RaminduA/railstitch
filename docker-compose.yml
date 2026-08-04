@@ -24,6 +24,7 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
       PORT: 8080
+      HMAC_SECRET: ${HMAC_SECRET:-dev-secret-change-in-production}
     ports:
       - "8080:8080"
     depends_on:

@@ -137,6 +137,18 @@ func main() {
 			api.CancelBooking(w, r, id)
 		})
 
+		// Auth
+		r.Post("/auth/upsert-user", api.UpsertUser)
+		r.Get("/users/{userID}/bookings", func(w http.ResponseWriter, r *http.Request) {
+			userID := chi.URLParam(r, "userID")
+			api.UserBookings(w, r, userID)
+		})
+		r.Get("/bookings/{bookingID}/verify", func(w http.ResponseWriter, r *http.Request) {
+			id, ok := intParam(r, "bookingID")
+			if !ok { http.Error(w, "invalid booking id", 400); return }
+			api.VerifyBooking(w, r, id)
+		})
+
 		// Days off management
 		r.Get("/admin/days-off", api.ListDaysOff)
 		r.Post("/admin/days-off", api.AddDayOff)

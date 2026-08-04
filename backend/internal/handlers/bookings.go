@@ -309,7 +309,7 @@ func (a *API) CreateBooking(w http.ResponseWriter, r *http.Request, tripID int) 
 
 	var booked *models.Booking
 	for _, seatID := range candidateSeatIDs {
-		b, err := a.tryInsertBooking(tripID, seatID, origin, dest, req.PassengerName, req.PassengerType, quotedFare)
+			b, err := a.tryInsertBooking(tripID, seatID, origin, dest, req.PassengerName, req.PassengerType, quotedFare, req.UserID)
 		if err == nil {
 			booked = b
 			break
@@ -339,22 +339,31 @@ func (a *API) CreateBooking(w http.ResponseWriter, r *http.Request, tripID int) 
 }
 
 func (a *API) tryInsertBooking(tripID, seatID int, origin, dest stationInfo,
-	passengerName, passengerType string, fareAmt int) (*models.Booking, error) {
+	passengerName, passengerType string, fareAmt int, userID string) (*models.Booking, error) {
 
 	minSeq, maxSeq := origin.Seq, dest.Seq
 	if minSeq > maxSeq {
 		minSeq, maxSeq = maxSeq, minSeq
 	}
 	var b models.Booking
+		userIDVal := interface{}(nil)
+	if userID != "" {
+		userIDVal = userID
+	}
 	err := a.DB.QueryRow(`
 		INSERT INTO bookings
-		  (trip_id, seat_id, origin_station_id, dest_station_id, seg, passenger_name, passenger_type, fare, status)
-		VALUES ($1, $2, $3, $4, int4range($5, $6), $7, $8, $9, 'confirmed')
+		  (trip_id, seat_id, origin_station_id, dest_station_id, seg, passenger_name, passenger_type, fare, status, user_id)
+		VALUES ($1, $2, $3, $4, int4range($5, $6), $7, $8, $9, 'confirmed', $10)
 		RETURNING id, trip_id, seat_id, origin_station_id, dest_station_id,
 		          passenger_name, passenger_type, fare, status, created_at`,
-		tripID, seatID, origin.ID, dest.ID, minSeq, maxSeq, passengerName, passengerType, fareAmt,
+		tripID, seatID, origin.ID, dest.ID, minSeq, maxSeq, passengerName, passengerType, fareAmt, userIDVal,
 	).Scan(&b.ID, &b.TripID, &b.SeatID, &b.OriginStationID, &b.DestStationID,
 		&b.PassengerName, &b.PassengerType, &b.Fare, &b.Status, &b.CreatedAt)
+	if err == nil {
+		// Store verification token for QR code
+		token := VerificationToken(b.ID, b.CreatedAt)
+		_, _ = a.DB.Exec(`UPDATE bookings SET verification_token = $1 WHERE id = $2`, token, b.ID)
+	}
 	if err != nil {
 		return nil, err
 	}
