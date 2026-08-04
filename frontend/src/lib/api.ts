@@ -1,8 +1,3 @@
-// In local dev, NEXT_PUBLIC_API_URL is set to http://localhost:8080.
-// In Docker, server components use INTERNAL_API_URL (http://api:8080 direct to the
-// Go container). Client components in Docker get an empty string, so their
-// fetch calls go to the same origin and the Next.js rewrite proxy forwards them
-// to the Go API -- no double /api prefix, no CORS.
 const isServer = typeof window === "undefined";
 const API_URL = isServer
   ? (process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080")
@@ -14,6 +9,7 @@ export type Station = {
   name: string;
   seq: number;
   distance_km: number;
+  zone: number;
 };
 
 export type Trip = {
@@ -21,22 +17,47 @@ export type Trip = {
   route_id: number;
   name: string;
   service_date: string;
+  direction: "outbound" | "inbound";
+  overnight_outbound: boolean;
+  overnight_inbound: boolean;
 };
 
-export type SeatAvailability = {
+export type TripStop = {
+  id: number;
+  trip_id: number;
+  station_id: number;
+  station_name: string;
+  seq: number;
+  seq_in_trip: number;
+  zone: number;
+  distance_km: number;
+  arrival_time: string | null;
+  departure_time: string | null;
+  can_board: boolean;
+};
+
+export type SeatWithStatus = {
   seat_id: number;
   coach_number: string;
+  coach_class: string;
   seat_number: number;
-  fare: number;
+  available: boolean;
+};
+
+export type CoachWithSeats = {
+  coach_id: number;
+  coach_number: string;
+  class: "first" | "second" | "third";
+  display_order: number;
+  fare_adult: number;
+  seats: SeatWithStatus[];
 };
 
 export type AvailabilityResponse = {
-  class: "reserved" | "unreserved";
-  distance_km?: number;
-  fare?: number;
-  fare_estimate?: number;
-  note?: string;
-  seats: SeatAvailability[];
+  trip_id: number;
+  origin_station_id: number;
+  dest_station_id: number;
+  coaches: CoachWithSeats[];
 };
 
 export type Booking = {
@@ -44,12 +65,14 @@ export type Booking = {
   trip_id: number;
   seat_id: number;
   coach_number?: string;
+  coach_class?: string;
   seat_number?: number;
   origin_station_id: number;
   dest_station_id: number;
   origin_name?: string;
   dest_name?: string;
   passenger_name: string;
+  passenger_type: "adult" | "child" | "student" | "senior";
   fare: number;
   status: "confirmed" | "cancelled";
   created_at: string;
@@ -62,6 +85,7 @@ export type WaitlistEntry = {
   dest_station_id: number;
   class: string;
   passenger_name: string;
+  passenger_type: string;
   status: "waiting" | "promoted" | "cancelled";
   created_at: string;
 };
@@ -103,9 +127,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     try {
       const body = await res.json();
       if (body?.error) message = body.error;
-    } catch {
-      // response wasn't JSON; keep the generic message
-    }
+    } catch { /* keep generic message */ }
     throw new ApiError(res.status, message);
   }
   if (res.status === 204) return undefined as T;
@@ -116,16 +138,15 @@ export const api = {
   getStations: (routeId: number) =>
     request<Station[]>(`/api/routes/${routeId}/stations`),
 
-  getTrips: (routeId = 1) => request<Trip[]>(`/api/trips?route_id=${routeId}`),
+  getTrips: (routeId = 1) =>
+    request<Trip[]>(`/api/trips?route_id=${routeId}`),
 
-  getAvailability: (
-    tripId: number,
-    originId: number,
-    destId: number,
-    seatClass: "reserved" | "unreserved" = "reserved",
-  ) =>
+  getTripStops: (tripId: number) =>
+    request<TripStop[]>(`/api/trips/${tripId}/stops`),
+
+  getAvailability: (tripId: number, originId: number, destId: number) =>
     request<AvailabilityResponse>(
-      `/api/trips/${tripId}/availability?origin=${originId}&dest=${destId}&class=${seatClass}`,
+      `/api/trips/${tripId}/availability?origin=${originId}&dest=${destId}`,
     ),
 
   createBooking: (
@@ -134,6 +155,7 @@ export const api = {
       origin_station_id: number;
       dest_station_id: number;
       passenger_name: string;
+      passenger_type: string;
       seat_id?: number;
       class?: string;
     },
@@ -142,6 +164,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  getBooking: (bookingId: number) =>
+    request<Booking>(`/api/bookings/${bookingId}`),
 
   listBookings: (tripId: number) =>
     request<Booking[]>(`/api/trips/${tripId}/bookings`),
@@ -158,6 +183,7 @@ export const api = {
       origin_station_id: number;
       dest_station_id: number;
       passenger_name: string;
+      passenger_type?: string;
       class?: string;
     },
   ) =>

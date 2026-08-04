@@ -11,8 +11,7 @@ export default function MyBookingsPage() {
   const [cancellingId, setCancellingId] = useState<number | null>(null);
 
   useEffect(() => {
-    // Reading an external, synchronous store (localStorage) once on mount --
-    // there is no subscription or callback to hang this off of.
+    // Reading localStorage once on mount, no subscription available.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBookings(getMyBookings());
     api

@@ -12,12 +12,19 @@ export default async function TripPage({
   const tripId = Number(id);
   if (!Number.isFinite(tripId)) notFound();
 
-  const [trips, stations] = await Promise.all([
+  const [trips, stations, stops] = await Promise.all([
     api.getTrips(1),
     api.getStations(1),
+    api.getTripStops(tripId),
   ]);
+
   const trip = trips.find((t) => t.id === tripId);
   if (!trip) notFound();
+
+  const directionLabel =
+    trip.direction === "outbound"
+      ? "Colombo Fort → Badulla"
+      : "Badulla → Colombo Fort";
 
   return (
     <main className="flex-1 px-6 py-12">
@@ -26,20 +33,21 @@ export default async function TripPage({
           href="/"
           className="inline-flex items-center gap-1 font-mono text-xs uppercase tracking-wide text-ink/50 hover:text-brass transition-colors mb-6"
         >
-          &larr; All departures
+          ← All departures
         </Link>
-        <p className="font-mono text-xs tracking-[0.2em] uppercase text-rail-green/70 mb-2">
+        <p className="font-mono text-xs tracking-[0.2em] uppercase text-rail-green/70 mb-1">
           {new Date(trip.service_date).toLocaleDateString(undefined, {
             weekday: "long",
             month: "long",
             day: "numeric",
             year: "numeric",
           })}
+          <span className="ml-3 text-ink/40">{directionLabel}</span>
         </p>
         <h1 className="font-display text-4xl text-rail-green mb-8">
           {trip.name}
         </h1>
-        <TripBooking tripId={trip.id} stations={stations} />
+        <TripBooking trip={trip} stations={stations} stops={stops} />
       </div>
     </main>
   );

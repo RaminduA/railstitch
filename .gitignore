@@ -19,3 +19,6 @@ frontend/.env*
 
 # Patch files
 *.patch
+
+# Rejects
+*.rej

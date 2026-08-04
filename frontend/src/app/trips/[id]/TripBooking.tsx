@@ -1,91 +1,114 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { Station } from "@/lib/api";
+import { useState } from "react";
+import type { Station, Trip, TripStop } from "@/lib/api";
 import { RouteRail } from "@/components/RouteRail";
 import { SeatPicker } from "./SeatPicker";
 
 type Props = {
-  tripId: number;
+  trip: Trip;
   stations: Station[];
+  stops: TripStop[];
 };
 
-export function TripBooking({ tripId, stations }: Props) {
-  const [originId, setOriginId] = useState<number | null>(null);
-  const [destId, setDestId] = useState<number | null>(null);
+export function TripBooking({ trip, stations, stops }: Props) {
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
-  const byId = useMemo(
-    () => new Map(stations.map((s) => [s.id, s])),
-    [stations],
-  );
+  const stopMap = new Map(stops.map((s) => [s.station_id, s]));
+  const stationMap = new Map(stations.map((s) => [s.id, s]));
 
   function handleSelect(stationId: number) {
-    if (originId === null) {
-      setOriginId(stationId);
-      return;
-    }
-    if (destId === null) {
-      if (stationId === originId) {
-        setOriginId(null);
-        return;
-      }
-      const originSeq = byId.get(originId)!.seq;
-      const tappedSeq = byId.get(stationId)!.seq;
-      if (tappedSeq > originSeq) {
-        setDestId(stationId);
-      } else {
-        setOriginId(stationId);
-      }
-      return;
-    }
-
-    setOriginId(stationId);
-    setDestId(null);
+    setSelectedIds((prev) => {
+      if (prev.length === 2) return [stationId]; // start over
+      if (prev.includes(stationId)) return prev.filter((id) => id !== stationId); // deselect
+      return [...prev, stationId];
+    });
   }
 
-  const origin = originId !== null ? byId.get(originId) ?? null : null;
-  const dest = destId !== null ? byId.get(destId) ?? null : null;
+  let originId: number | null = null;
+  let destId: number | null = null;
+  if (selectedIds.length === 2) {
+    const [a, b] = selectedIds;
+    const seqA = stationMap.get(a)?.seq ?? 0;
+    const seqB = stationMap.get(b)?.seq ?? 0;
+    if (trip.direction === "outbound") {
+      originId = seqA <= seqB ? a : b;
+      destId = seqA <= seqB ? b : a;
+    } else {
+      originId = seqA >= seqB ? a : b;
+      destId = seqA >= seqB ? b : a;
+    }
+  }
+
+  const origin = originId !== null ? stationMap.get(originId) ?? null : null;
+  const dest = destId !== null ? stationMap.get(destId) ?? null : null;
+
+  const originStop = origin ? stopMap.get(origin.id) ?? null : null;
+  const destStop = dest ? stopMap.get(dest.id) ?? null : null;
+
   const distanceKm =
-    origin && dest ? Math.round((dest.distance_km - origin.distance_km) * 10) / 10 : null;
+    origin && dest
+      ? Math.abs(dest.distance_km - origin.distance_km).toFixed(1)
+      : null;
+
+  const crossings =
+    origin && dest ? Math.abs(dest.zone - origin.zone) : null;
+
+  const directionLabel =
+    trip.direction === "outbound"
+      ? "Colombo Fort → Badulla"
+      : "Badulla → Colombo Fort";
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-xl border border-rail-green/15 bg-white/40 px-4 py-6">
-        <p className="font-mono text-xs tracking-[0.15em] uppercase text-ink/50 mb-4">
-          {!origin
-            ? "Tap where you're boarding"
-            : !dest
-              ? "Tap where you're getting off"
+      <div className="rounded-xl border border-rail-green/15 bg-white/40 px-4 py-5">
+        <div className="flex items-center justify-between mb-4">
+          <p className="font-mono text-xs tracking-[0.15em] uppercase text-ink/50">
+            {selectedIds.length === 0
+              ? "Tap your boarding station"
+              : selectedIds.length === 1
+              ? "Tap your alighting station"
               : "Your leg"}
-        </p>
+          </p>
+          <span className="font-mono text-[10px] text-ink/40 uppercase tracking-wide">
+            {directionLabel}
+          </span>
+        </div>
         <RouteRail
           stations={stations}
-          originId={originId}
-          destId={destId}
+          stops={stops}
+          selectedIds={selectedIds}
+          direction={trip.direction}
           onSelect={handleSelect}
         />
       </div>
 
-      {origin && dest && distanceKm !== null && (
-        <div className="flex items-center justify-between rounded-lg bg-rail-green text-paper px-5 py-4">
-          <div>
-            <span className="font-display text-lg">{origin.name}</span>
-            <span className="mx-2 text-brass-bright">&rarr;</span>
-            <span className="font-display text-lg">{dest.name}</span>
+      {origin && dest && originStop && destStop && (
+        <>
+          <div className="flex items-center justify-between rounded-lg bg-rail-green text-paper px-5 py-4">
+            <div>
+              <span className="font-display text-lg">{origin.name}</span>
+              <span className="mx-2 text-brass-bright">→</span>
+              <span className="font-display text-lg">{dest.name}</span>
+              {crossings !== null && (
+                <span className="ml-3 font-mono text-xs text-paper/60">
+                  Zone {origin.zone} → Zone {dest.zone}
+                  {crossings === 0 ? " (intra-zone)" : ` (${crossings} crossing${crossings > 1 ? "s" : ""})`}
+                </span>
+              )}
+            </div>
+            <span className="font-mono text-sm text-paper/80">
+              {distanceKm} km
+            </span>
           </div>
-          <span className="font-mono text-sm text-paper/80">
-            {distanceKm} km
-          </span>
-        </div>
-      )}
 
-      {origin && dest && (
-        <SeatPicker
-          key={`${origin.id}-${dest.id}`}
-          tripId={tripId}
-          originId={origin.id}
-          destId={dest.id}
-        />
+          <SeatPicker
+            key={`${origin.id}-${dest.id}`}
+            tripId={trip.id}
+            originId={origin.id}
+            destId={dest.id}
+          />
+        </>
       )}
     </div>
   );
