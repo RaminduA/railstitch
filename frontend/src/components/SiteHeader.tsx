@@ -60,7 +60,7 @@ export function SiteHeader() {
                 />
               )}
               <span className="hidden sm:block font-mono text-xs text-ink/70">
-                {user?.name?.split(" ")[0]}
+                {user?.name}
               </span>
               <button
                 onClick={() => signOut({ callbackUrl: "/" })}

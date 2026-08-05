@@ -37,6 +37,10 @@ services:
     restart: unless-stopped
     environment:
       INTERNAL_API_URL: http://api:8080
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
     ports:
       - "3000:3000"
     depends_on:
