@@ -83,6 +83,8 @@ export type Booking = {
   created_at: string;
   verification_token?: string;
   user_id?: string;
+  origin_departure_time?: string | null;
+  dest_arrival_time?: string | null;
 };
 
 export type WaitlistEntry = {

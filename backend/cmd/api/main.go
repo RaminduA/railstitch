@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -40,6 +41,25 @@ func main() {
 	defer conn.Close()
 
 	api := &handlers.API{DB: conn}
+
+	if adminEmails := os.Getenv("ADMIN_EMAILS"); adminEmails != "" {
+		for _, email := range strings.Split(adminEmails, ",") {
+			email = strings.TrimSpace(email)
+			if email == "" {
+				continue
+			}
+			_, err := conn.Exec(`
+				INSERT INTO users (id, email, name, is_admin)
+				VALUES ($1, $2, $2, TRUE)
+				ON CONFLICT (email) DO UPDATE SET is_admin = TRUE`,
+				"admin:"+email, email)
+			if err != nil {
+				log.Printf("warn: failed to seed admin %s: %v", email, err)
+			} else {
+				log.Printf("admin seeded: %s", email)
+			}
+		}
+	}
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -145,7 +165,10 @@ func main() {
 		})
 		r.Get("/bookings/{bookingID}/verify", func(w http.ResponseWriter, r *http.Request) {
 			id, ok := intParam(r, "bookingID")
-			if !ok { http.Error(w, "invalid booking id", 400); return }
+			if !ok {
+				http.Error(w, "invalid booking id", 400)
+				return
+			}
 			api.VerifyBooking(w, r, id)
 		})
 

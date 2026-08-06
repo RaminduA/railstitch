@@ -11,8 +11,6 @@ import (
 	"time"
 )
 
-// hmacSecret is read from the HMAC_SECRET env var at startup.
-// Falls back to a development default — never use the default in production.
 func hmacSecret() []byte {
 	s := os.Getenv("HMAC_SECRET")
 	if s == "" {
@@ -21,8 +19,6 @@ func hmacSecret() []byte {
 	return []byte(s)
 }
 
-// VerificationToken computes the 16-hex-char token for a booking.
-// Input: booking ID + "|" + created_at Unix timestamp.
 func VerificationToken(bookingID int, createdAt time.Time) string {
 	msg := fmt.Sprintf("%d|%d", bookingID, createdAt.Unix())
 	mac := hmac.New(sha256.New, hmacSecret())
@@ -31,8 +27,6 @@ func VerificationToken(bookingID int, createdAt time.Time) string {
 }
 
 // POST /api/auth/upsert-user
-// Called by NextAuth after successful Google sign-in.
-// Creates the user row if it doesn't exist, or updates name/avatar if it does.
 func (a *API) UpsertUser(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ID        string `json:"id"`
@@ -56,7 +50,7 @@ func (a *API) UpsertUser(w http.ResponseWriter, r *http.Request) {
 	err := a.DB.QueryRow(`
 		INSERT INTO users (id, email, name, avatar_url)
 		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (id) DO UPDATE
+		ON CONFLICT (email) DO UPDATE
 		  SET email = EXCLUDED.email,
 		      name = EXCLUDED.name,
 		      avatar_url = EXCLUDED.avatar_url
@@ -71,7 +65,6 @@ func (a *API) UpsertUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /api/bookings/:id/verify?token=...
-// Public endpoint — no auth required. Used by QR code scans.
 func (a *API) VerifyBooking(w http.ResponseWriter, r *http.Request, bookingID int) {
 	token := r.URL.Query().Get("token")
 	if token == "" {
@@ -112,11 +105,13 @@ func (a *API) VerifyBooking(w http.ResponseWriter, r *http.Request, bookingID in
 	})
 }
 
-// GET /api/users/:userID/bookings — booking history for a user
+// GET /api/users/:userID/bookings
 func (a *API) UserBookings(w http.ResponseWriter, r *http.Request, userID string) {
 	rows, err := a.DB.Query(`
 		SELECT b.id, b.trip_id, b.seat_id, c.coach_number, c.class, s.seat_number,
 		       b.origin_station_id, b.dest_station_id, os.name, ds.name,
+		       to_char(ots.departure_time, 'HH24:MI'),
+		       to_char(dts.arrival_time, 'HH24:MI'),
 		       b.passenger_name, b.passenger_type, b.fare, b.status, b.created_at,
 		       b.verification_token,
 		       t.name, t.service_date::text, t.direction
@@ -125,6 +120,8 @@ func (a *API) UserBookings(w http.ResponseWriter, r *http.Request, userID string
 		JOIN coaches c    ON c.id = s.coach_id
 		JOIN stations os  ON os.id = b.origin_station_id
 		JOIN stations ds  ON ds.id = b.dest_station_id
+		LEFT JOIN trip_stops ots ON ots.trip_id = b.trip_id AND ots.station_id = b.origin_station_id
+		LEFT JOIN trip_stops dts ON dts.trip_id = b.trip_id AND dts.station_id = b.dest_station_id
 		JOIN trips t      ON t.id = b.trip_id
 		WHERE b.user_id = $1
 		ORDER BY b.created_at DESC`, userID)
@@ -135,25 +132,27 @@ func (a *API) UserBookings(w http.ResponseWriter, r *http.Request, userID string
 	defer rows.Close()
 
 	type bookingWithTrip struct {
-		ID                int     `json:"id"`
-		TripID            int     `json:"trip_id"`
-		TripName          string  `json:"trip_name"`
-		ServiceDate       string  `json:"service_date"`
-		Direction         string  `json:"direction"`
-		SeatID            int     `json:"seat_id"`
-		CoachNumber       string  `json:"coach_number"`
-		CoachClass        string  `json:"coach_class"`
-		SeatNumber        int     `json:"seat_number"`
-		OriginStationID   int     `json:"origin_station_id"`
-		DestStationID     int     `json:"dest_station_id"`
-		OriginName        string  `json:"origin_name"`
-		DestName          string  `json:"dest_name"`
-		PassengerName     string  `json:"passenger_name"`
-		PassengerType     string  `json:"passenger_type"`
-		Fare              float64 `json:"fare"`
-		Status            string  `json:"status"`
-		CreatedAt         string  `json:"created_at"`
-		VerificationToken *string `json:"verification_token"`
+		ID                  int     `json:"id"`
+		TripID              int     `json:"trip_id"`
+		TripName            string  `json:"trip_name"`
+		ServiceDate         string  `json:"service_date"`
+		Direction           string  `json:"direction"`
+		SeatID              int     `json:"seat_id"`
+		CoachNumber         string  `json:"coach_number"`
+		CoachClass          string  `json:"coach_class"`
+		SeatNumber          int     `json:"seat_number"`
+		OriginStationID     int     `json:"origin_station_id"`
+		DestStationID       int     `json:"dest_station_id"`
+		OriginName          string  `json:"origin_name"`
+		DestName            string  `json:"dest_name"`
+		OriginDepartureTime *string `json:"origin_departure_time"`
+		DestArrivalTime     *string `json:"dest_arrival_time"`
+		PassengerName       string  `json:"passenger_name"`
+		PassengerType       string  `json:"passenger_type"`
+		Fare                float64 `json:"fare"`
+		Status              string  `json:"status"`
+		CreatedAt           string  `json:"created_at"`
+		VerificationToken   *string `json:"verification_token"`
 	}
 
 	out := []bookingWithTrip{}
@@ -163,6 +162,7 @@ func (a *API) UserBookings(w http.ResponseWriter, r *http.Request, userID string
 		if err := rows.Scan(
 			&b.ID, &b.TripID, &b.SeatID, &b.CoachNumber, &b.CoachClass, &b.SeatNumber,
 			&b.OriginStationID, &b.DestStationID, &b.OriginName, &b.DestName,
+			&b.OriginDepartureTime, &b.DestArrivalTime,
 			&b.PassengerName, &b.PassengerType, &b.Fare, &b.Status, &createdAt,
 			&b.VerificationToken, &b.TripName, &b.ServiceDate, &b.Direction,
 		); err != nil {

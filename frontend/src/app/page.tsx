@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { Logo } from "@/components/Logo";
 
 export default function LandingPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
 
   // Redirect signed-in users to the trains page

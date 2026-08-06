@@ -11,7 +11,7 @@ const MONTHS = [
   "January","February","March","April","May","June",
   "July","August","September","October","November","December",
 ];
-const DAYS = ["Mo","Tu","We","Th","Fr","Sa","Su"];
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
 function toYMD(d: Date): string {
   const y = d.getFullYear();
@@ -105,7 +105,7 @@ export default function OccupancyPage() {
           ← Admin
         </Link>
         <p className="font-mono text-xs tracking-[0.2em] uppercase text-rail-green/70 mb-2">Department view</p>
-        <h1 className="font-display text-4xl text-rail-green mb-8">Occupancy &amp; revenue</h1>
+        <h1 className="font-display text-4xl text-rail-green mb-8">Occupancy &amp; Revenue</h1>
 
         {/* Step 1: Train */}
         <div className="mb-6">
