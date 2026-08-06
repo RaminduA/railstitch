@@ -31,6 +31,18 @@ export function TicketView({ booking, trip, canCancel }: Props) {
   const [cancelling, setCancelling] = useState(false);
   const isCancelled = booking.status === "cancelled";
 
+  // Compute expired state from timing fields
+  const isExpired = (() => {
+    if (isCancelled) return false;
+    const sd = booking.service_date ?? trip?.service_date;
+    const destArr = booking.dest_arrival_time;
+    if (!sd || !destArr) return false;
+    const [h, m] = destArr.split(":").map(Number);
+    const arrTime = new Date(sd + "T00:00:00");
+    arrTime.setHours(h, m, 0, 0);
+    return new Date() > arrTime;
+  })();
+
   const verifyUrl = booking.verification_token
     ? `${typeof window !== "undefined" ? window.location.origin : "https://railstitch.com"}/verify/${booking.id}?token=${booking.verification_token}`
     : null;
@@ -195,13 +207,18 @@ export function TicketView({ booking, trip, canCancel }: Props) {
             )}
           </div>
 
-          {/* Cancelled overlay text */}
+          {/* Status overlay watermarks */}
           {isCancelled && (
             <div className="absolute inset-0 ml-12 flex items-center justify-center pointer-events-none">
-              <span
-                className="font-display text-4xl text-signal-rust/40 rotate-[-15deg] tracking-widest border-4 border-signal-rust/30 px-4 py-1"
-              >
+              <span className="font-display text-4xl text-signal-rust/40 rotate-[-15deg] tracking-widest border-4 border-signal-rust/30 px-4 py-1">
                 CANCELLED
+              </span>
+            </div>
+          )}
+          {!isCancelled && isExpired && (
+            <div className="absolute inset-0 ml-12 flex items-center justify-center pointer-events-none">
+              <span className="font-display text-4xl text-ink/25 rotate-[-15deg] tracking-widest border-4 border-ink/20 px-4 py-1">
+                EXPIRED
               </span>
             </div>
           )}

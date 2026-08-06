@@ -341,7 +341,7 @@ function CoachMap({
           {/* Column headers */}
           <div
             className="grid items-center text-center w-full"
-            style={{ gridTemplateColumns: `repeat(${left}, 88px) 1fr repeat(${right}, 88px)` }}
+              style={{ gridTemplateColumns: `repeat(${left}, ${coach.class === "third" ? 88 : 132}px) 1fr repeat(${right}, ${coach.class === "third" ? 88 : 132}px)` }}
           >
             {Array.from({ length: left }).map((_, i) => (
               <span key={`lh-${i}`} className="font-mono text-[9px] text-ink/30 uppercase">
@@ -360,7 +360,7 @@ function CoachMap({
             <div
               key={rowIdx}
               className="grid items-center gap-1 w-full"
-              style={{ gridTemplateColumns: `repeat(${left}, 88px) 1fr repeat(${right}, 88px)` }}
+              style={{ gridTemplateColumns: `repeat(${left}, ${coach.class === "third" ? 88 : 132}px) 1fr repeat(${right}, ${coach.class === "third" ? 88 : 132}px)` }}
             >
               {rowSeats.slice(0, left).map((seat) => (
                 <SeatButton

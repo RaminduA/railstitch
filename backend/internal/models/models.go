@@ -71,21 +71,26 @@ type CoachWithSeats struct {
 }
 
 type Booking struct {
-	ID              int       `json:"id"`
-	TripID          int       `json:"trip_id"`
-	SeatID          int       `json:"seat_id"`
-	CoachNumber     string    `json:"coach_number,omitempty"`
-	CoachClass      string    `json:"coach_class,omitempty"`
-	SeatNumber      int       `json:"seat_number,omitempty"`
-	OriginStationID int       `json:"origin_station_id"`
-	DestStationID   int       `json:"dest_station_id"`
-	OriginName      string    `json:"origin_name,omitempty"`
-	DestName        string    `json:"dest_name,omitempty"`
-	PassengerName   string    `json:"passenger_name"`
-	PassengerType   string    `json:"passenger_type"`
-	Fare            float64   `json:"fare"`
-	Status          string    `json:"status"`
-	CreatedAt       time.Time `json:"created_at"`
+	ID                int       `json:"id"`
+	TripID            int       `json:"trip_id"`
+	SeatID            int       `json:"seat_id"`
+	CoachNumber       string    `json:"coach_number,omitempty"`
+	CoachClass        string    `json:"coach_class,omitempty"`
+	SeatNumber        int       `json:"seat_number,omitempty"`
+	OriginStationID   int       `json:"origin_station_id"`
+	DestStationID     int       `json:"dest_station_id"`
+	OriginName        string    `json:"origin_name,omitempty"`
+	DestName          string    `json:"dest_name,omitempty"`
+	PassengerName     string    `json:"passenger_name"`
+	PassengerType     string    `json:"passenger_type"`
+	Fare              float64   `json:"fare"`
+	Status            string    `json:"status"`
+	CreatedAt         time.Time `json:"created_at"`
+	VerificationToken   *string   `json:"verification_token,omitempty"`
+	UserID              *string   `json:"user_id,omitempty"`
+	OriginDepartureTime *string   `json:"origin_departure_time,omitempty"`
+	DestArrivalTime     *string   `json:"dest_arrival_time,omitempty"`
+	ServiceDate         string    `json:"service_date,omitempty"`
 }
 
 type WaitlistEntry struct {

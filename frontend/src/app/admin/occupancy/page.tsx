@@ -66,8 +66,8 @@ export default function OccupancyPage() {
     return cells;
   }
 
-  const canGoPrev = calYear > today.getFullYear() ||
-    (calYear === today.getFullYear() && calMonth > today.getMonth());
+  // Admins can navigate to past months to view historical occupancy
+  const canGoPrev = true;
 
   function prevMonth() {
     if (calMonth === 0) { setCalYear((y) => y - 1); setCalMonth(11); }
@@ -102,7 +102,7 @@ export default function OccupancyPage() {
     <main className="flex-1 px-6 py-12">
       <div className="max-w-3xl mx-auto">
         <Link href="/admin" className="inline-flex items-center gap-1 font-mono text-xs uppercase tracking-wide text-ink/50 hover:text-brass transition-colors mb-6">
-          ← Admin
+          ← Dashboard
         </Link>
         <p className="font-mono text-xs tracking-[0.2em] uppercase text-rail-green/70 mb-2">Department view</p>
         <h1 className="font-display text-4xl text-rail-green mb-8">Occupancy &amp; Revenue</h1>
@@ -162,20 +162,20 @@ export default function OccupancyPage() {
               {cells.map((date, i) => {
                 if (!date) return <div key={`e-${i}`} />;
                 const ymd = toYMD(date);
-                const isPast = startOfDay(date) < today;
                 const isBlocked = blockedDates.has(ymd);
                 const blockReason = blockedDates.get(ymd);
                 const isSelected = selectedDate === ymd;
                 const isToday = toYMD(today) === ymd;
-                const disabled = isPast || isBlocked;
+                // Admins can select past dates
+                const disabled = isBlocked;
                 return (
                   <button key={ymd} onClick={() => { if (!disabled) setSelectedDate(ymd); }}
                     disabled={disabled}
-                    title={isPast ? "Date in the past" : isBlocked ? (blockReason ? `No service: ${blockReason}` : "No service on this date") : undefined}
+                    title={isBlocked ? (blockReason ? `No service: ${blockReason}` : "No service on this date") : undefined}
                     className={[
                       "rounded-md py-1.5 font-mono text-sm transition-colors w-full",
                       isSelected ? "bg-rail-green text-paper font-medium"
-                        : isToday && !disabled ? "border border-brass text-rail-green hover:bg-brass/10"
+                        : isToday ? "border border-brass text-rail-green hover:bg-brass/10"
                         : disabled ? "text-ink/25 line-through cursor-not-allowed"
                         : "text-ink/70 hover:bg-rail-green/10 hover:text-rail-green",
                     ].join(" ")}>

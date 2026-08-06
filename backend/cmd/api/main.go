@@ -181,6 +181,15 @@ func main() {
 			api.RemoveDayOff(w, r, day)
 		})
 
+		r.Get("/trips/{tripID}/live", func(w http.ResponseWriter, r *http.Request) {
+			id, ok := intParam(r, "tripID")
+			if !ok {
+				http.Error(w, "invalid trip id", 400)
+				return
+			}
+			api.LiveTripUpdates(w, r, id)
+		})
+
 		r.Get("/admin/trips/{tripID}/summary", func(w http.ResponseWriter, r *http.Request) {
 			id, ok := intParam(r, "tripID")
 			if !ok {

@@ -25,11 +25,14 @@ export function SiteFooter() {
         </div>
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40 mb-2">Services</p>
-          <p className="font-mono text-xs text-ink/60 leading-relaxed">
-            Podi Menike &mdash; departs 05:55<br />
-            Udarata Menike &mdash; departs 08:30<br />
-            Journey: ~10 hours &middot; 303 km
-          </p>
+          <div className="font-mono text-xs text-ink/60 leading-loose">
+            <p className="text-ink/70 font-medium">Podi Menike</p>
+            <p>Colombo 05:55 &rarr; Badulla 16:07</p>
+            <p>Badulla 08:30 &rarr; Colombo 18:57</p>
+            <p className="text-ink/70 font-medium mt-1">Udarata Menike</p>
+            <p>Colombo 08:30 &rarr; Badulla 18:22</p>
+            <p>Badulla 05:45 &rarr; Colombo 15:47</p>
+          </div>
         </div>
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40 mb-2">Links</p>

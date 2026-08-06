@@ -105,7 +105,7 @@ export default function BookingHistoryPage() {
                     isCancelled ? "border-ink/10 bg-white/20 opacity-60" : "border-brass/40 bg-white/50"
                   }`}
                 >
-                  <Link href={`/bookings/${b.id}`} className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
+                  <div className="flex-1 min-w-0">
                     <p className="font-mono text-[10px] tracking-[0.15em] uppercase text-ink/40 mb-1">
                       {b.trip_name ?? `Trip #${b.trip_id}`}
                       {b.service_date && ` · ${new Date(b.service_date + "T12:00:00").toLocaleDateString()}`}
@@ -120,22 +120,32 @@ export default function BookingHistoryPage() {
                       Rs. {b.fare.toFixed(0)} &middot; booking #{b.id}
                       {isCancelled ? " · cancelled" : ""}
                     </p>
-                  </Link>
+                  </div>
 
-                  <div className="shrink-0" title={tooltip || undefined}>
-                    {canCancel ? (
-                      <button
-                        onClick={() => handleCancel(b.id)}
-                        disabled={cancellingId === b.id}
-                        className="rounded-md border border-signal-rust/50 text-signal-rust px-3 py-1.5 text-sm hover:bg-signal-rust hover:text-paper transition-colors disabled:opacity-40"
-                      >
-                        {cancellingId === b.id ? "Cancelling…" : "Cancel"}
-                      </button>
-                    ) : (
-                      <button disabled className="rounded-md border border-ink/15 text-ink/30 px-3 py-1.5 text-sm cursor-not-allowed">
-                        {isCancelled ? "Cancelled" : "Cancel"}
-                      </button>
-                    )}
+                  <div className="shrink-0 flex items-center gap-2">
+                    {/* View ticket — always enabled */}
+                    <Link
+                      href={`/bookings/${b.id}`}
+                      className="rounded-md border border-rail-green/40 text-rail-green px-3 py-1.5 text-sm hover:border-brass hover:text-brass transition-colors"
+                    >
+                      View ticket
+                    </Link>
+                    {/* Cancel — state-aware */}
+                    <div title={tooltip || undefined}>
+                      {canCancel ? (
+                        <button
+                          onClick={() => handleCancel(b.id)}
+                          disabled={cancellingId === b.id}
+                          className="rounded-md border border-signal-rust/50 text-signal-rust px-3 py-1.5 text-sm hover:bg-signal-rust hover:text-paper transition-colors disabled:opacity-40"
+                        >
+                          {cancellingId === b.id ? "Cancelling…" : "Cancel"}
+                        </button>
+                      ) : (
+                        <button disabled className="rounded-md border border-ink/15 text-ink/30 px-3 py-1.5 text-sm cursor-not-allowed">
+                          {isCancelled ? "Cancelled" : "Cancel"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
