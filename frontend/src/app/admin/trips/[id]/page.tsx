@@ -15,14 +15,10 @@ export default async function AdminTripPage({
   const trip = trips.find((t) => t.id === tripId);
   if (!trip) notFound();
 
-  // Fetch summary — if the trip exists but has no bookings yet, the backend
-  // returns zeroed values (Rs. 0, counts 0). This is expected for future
-  // dates that were just created via find-or-create.
   let summary: TripSummary;
   try {
     summary = await api.getTripSummary(tripId);
   } catch {
-    // Fallback to zeroed summary if the endpoint fails for any reason
     summary = {
       trip_id: tripId,
       total_revenue: 0,

@@ -5,13 +5,11 @@ const ADMIN_CARDS = [
     href: "/admin/occupancy",
     title: "Occupancy & Revenue",
     description: "View booking counts, revenue, and per-leg occupancy for any trip",
-    icon: "📊",
   },
   {
     href: "/admin/days-off",
     title: "Days Off",
     description: "Block specific dates when trains are not running",
-    icon: "📅",
   },
 ];
 
@@ -33,7 +31,6 @@ export default function AdminPage() {
               href={card.href}
               className="flex flex-col rounded-xl border border-rail-green/15 bg-white/40 px-6 py-5 hover:border-brass hover:bg-white/70 transition-colors group"
             >
-              <span className="text-2xl mb-3">{card.icon}</span>
               <span className="font-display text-xl text-rail-green group-hover:text-rail-green mb-1">
                 {card.title}
               </span>

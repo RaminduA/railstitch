@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import type { AppUser } from "@/lib/auth";
 import {
   api,
   type AvailabilityResponse,
@@ -66,6 +68,8 @@ const PASSENGER_TYPES = [
 ];
 
 export function SeatPicker({ tripId, originId, destId }: Props) {
+  const { data: session } = useSession();
+  const user = session?.user as AppUser | undefined;
   const [status, setStatus] = useState<Status>("loading");
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
   const [selectedSeats, setSelectedSeats] = useState<
@@ -129,6 +133,7 @@ export function SeatPicker({ tripId, originId, destId }: Props) {
           passenger_type: passengerTypes[s.seatId] ?? "adult",
           seat_id: s.seatId,
           class: s.coachClass,
+          user_id: user?.googleId,
         }),
       ),
     );
@@ -335,8 +340,8 @@ function CoachMap({
         <div className="px-3 py-2 flex flex-col items-center gap-1.5">
           {/* Column headers */}
           <div
-            className="grid items-center text-center"
-            style={{ gridTemplateColumns: `repeat(${left}, 44px) 36px repeat(${right}, 44px)` }}
+            className="grid items-center text-center w-full"
+              style={{ gridTemplateColumns: `repeat(${left}, ${coach.class === "third" ? 88 : 132}px) 1fr repeat(${right}, ${coach.class === "third" ? 88 : 132}px)` }}
           >
             {Array.from({ length: left }).map((_, i) => (
               <span key={`lh-${i}`} className="font-mono text-[9px] text-ink/30 uppercase">
@@ -354,8 +359,8 @@ function CoachMap({
           {seatRows.map((rowSeats, rowIdx) => (
             <div
               key={rowIdx}
-              className="grid items-center gap-1"
-              style={{ gridTemplateColumns: `repeat(${left}, 44px) 36px repeat(${right}, 44px)` }}
+              className="grid items-center gap-1 w-full"
+              style={{ gridTemplateColumns: `repeat(${left}, ${coach.class === "third" ? 88 : 132}px) 1fr repeat(${right}, ${coach.class === "third" ? 88 : 132}px)` }}
             >
               {rowSeats.slice(0, left).map((seat) => (
                 <SeatButton
@@ -368,9 +373,9 @@ function CoachMap({
                   onToggle={onToggle}
                 />
               ))}
-              {/* Aisle */}
-              <div className="h-full flex items-center justify-center">
-                <div className="w-4 h-full border-l border-r border-ink/10 bg-ink/[0.03]" />
+              {/* Aisle — fills remaining space dynamically */}
+              <div className="h-full w-full flex items-center justify-center">
+                <div className="w-full h-full border-l border-r border-ink/10 bg-ink/[0.03]" />
               </div>
               {rowSeats.slice(left).map((seat) => (
                 <SeatButton
@@ -439,7 +444,7 @@ function SeatButton({
       aria-pressed={isSelected}
       title={tooltip}
       className={[
-        "rounded py-1.5 font-mono text-xs border transition-colors w-full",
+        "rounded py-2 font-mono text-xs border transition-colors w-full",
         isSelected
           ? styles.selected
           : seat.available

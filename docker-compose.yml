@@ -24,6 +24,8 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
       PORT: 8080
+      HMAC_SECRET: ${HMAC_SECRET}
+      ADMIN_EMAILS: ${ADMIN_EMAILS}
     ports:
       - "8080:8080"
     depends_on:
@@ -36,6 +38,10 @@ services:
     restart: unless-stopped
     environment:
       INTERNAL_API_URL: http://api:8080
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
     ports:
       - "3000:3000"
     depends_on:

@@ -11,7 +11,7 @@ const MONTHS = [
   "January","February","March","April","May","June",
   "July","August","September","October","November","December",
 ];
-const DAYS = ["Mo","Tu","We","Th","Fr","Sa","Su"];
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
 function toYMD(d: Date): string {
   const y = d.getFullYear();
@@ -31,7 +31,7 @@ export default function OccupancyPage() {
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [blockedDates, setBlockedDates] = useState<Set<string>>(new Set());
+  const [blockedDates, setBlockedDates] = useState<Map<string, string>>(new Map());
   const [proceeding, setProceeding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,8 +40,12 @@ export default function OccupancyPage() {
     const lastDay = new Date(year, month + 2, 0).getDate();
     const to = `${year}-${String(month + 2).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
     try {
-      const days = await api.getDaysOffInRange(from, to);
-      setBlockedDates((prev) => { const n = new Set(prev); days.forEach((d) => n.add(d)); return n; });
+      const [days, allDaysOff] = await Promise.all([
+        api.getDaysOffInRange(from, to),
+        api.getDaysOff().catch(() => []),
+      ]);
+      const reasonMap = new Map(allDaysOff.map((d) => [d.day, d.reason]));
+      setBlockedDates((prev) => { const n = new Map(prev); days.forEach((d) => n.set(d, reasonMap.get(d) ?? "")); return n; });
     } catch { /* skip */ }
   }, []);
 
@@ -62,8 +66,8 @@ export default function OccupancyPage() {
     return cells;
   }
 
-  const canGoPrev = calYear > today.getFullYear() ||
-    (calYear === today.getFullYear() && calMonth > today.getMonth());
+  // Admins can navigate to past months to view historical occupancy
+  const canGoPrev = true;
 
   function prevMonth() {
     if (calMonth === 0) { setCalYear((y) => y - 1); setCalMonth(11); }
@@ -98,10 +102,10 @@ export default function OccupancyPage() {
     <main className="flex-1 px-6 py-12">
       <div className="max-w-3xl mx-auto">
         <Link href="/admin" className="inline-flex items-center gap-1 font-mono text-xs uppercase tracking-wide text-ink/50 hover:text-brass transition-colors mb-6">
-          ← Admin
+          ← Dashboard
         </Link>
         <p className="font-mono text-xs tracking-[0.2em] uppercase text-rail-green/70 mb-2">Department view</p>
-        <h1 className="font-display text-4xl text-rail-green mb-8">Occupancy &amp; revenue</h1>
+        <h1 className="font-display text-4xl text-rail-green mb-8">Occupancy &amp; Revenue</h1>
 
         {/* Step 1: Train */}
         <div className="mb-6">
@@ -158,19 +162,20 @@ export default function OccupancyPage() {
               {cells.map((date, i) => {
                 if (!date) return <div key={`e-${i}`} />;
                 const ymd = toYMD(date);
-                const isPast = startOfDay(date) < today;
                 const isBlocked = blockedDates.has(ymd);
+                const blockReason = blockedDates.get(ymd);
                 const isSelected = selectedDate === ymd;
                 const isToday = toYMD(today) === ymd;
-                const disabled = isPast || isBlocked;
+                // Admins can select past dates
+                const disabled = isBlocked;
                 return (
                   <button key={ymd} onClick={() => { if (!disabled) setSelectedDate(ymd); }}
                     disabled={disabled}
-                    title={isBlocked ? "No service on this date" : undefined}
+                    title={isBlocked ? (blockReason ? `No service: ${blockReason}` : "No service on this date") : undefined}
                     className={[
                       "rounded-md py-1.5 font-mono text-sm transition-colors w-full",
                       isSelected ? "bg-rail-green text-paper font-medium"
-                        : isToday && !disabled ? "border border-brass text-rail-green hover:bg-brass/10"
+                        : isToday ? "border border-brass text-rail-green hover:bg-brass/10"
                         : disabled ? "text-ink/25 line-through cursor-not-allowed"
                         : "text-ink/70 hover:bg-rail-green/10 hover:text-rail-green",
                     ].join(" ")}>

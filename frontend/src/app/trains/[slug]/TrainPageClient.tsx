@@ -36,7 +36,7 @@ export function TrainPageClient({ trainName, outboundStops, inboundStops }: Prop
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [blockedDates, setBlockedDates] = useState<Set<string>>(new Set());
+  const [blockedDates, setBlockedDates] = useState<Map<string, string>>(new Map());
   const [proceeding, setProceeding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,10 +48,14 @@ export function TrainPageClient({ trainName, outboundStops, inboundStops }: Prop
     const lastDay = new Date(year, month + 2, 0).getDate();
     const to = `${year}-${String(month + 2).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
     try {
-      const days = await api.getDaysOffInRange(from, to);
+      const [days, allDaysOff] = await Promise.all([
+        api.getDaysOffInRange(from, to),
+        api.getDaysOff().catch(() => []),
+      ]);
+      const reasonMap = new Map(allDaysOff.map((d) => [d.day, d.reason]));
       setBlockedDates((prev) => {
-        const next = new Set(prev);
-        days.forEach((d) => next.add(d));
+        const next = new Map(prev);
+        days.forEach((d) => next.set(d, reasonMap.get(d) ?? ""));
         return next;
       });
     } catch {
@@ -214,6 +218,7 @@ export function TrainPageClient({ trainName, outboundStops, inboundStops }: Prop
                 const ymd = toYMD(date);
                 const isPast = startOfDay(date) < today;
                 const isBlocked = blockedDates.has(ymd);
+                const blockReason = blockedDates.get(ymd);
                 const isSelected = selectedDate === ymd;
                 const isToday = toYMD(today) === ymd;
                 const disabled = isPast || isBlocked;
@@ -222,7 +227,7 @@ export function TrainPageClient({ trainName, outboundStops, inboundStops }: Prop
                     key={ymd}
                     onClick={() => { if (!disabled) setSelectedDate(ymd); }}
                     disabled={disabled}
-                    title={isBlocked ? "No service on this date" : undefined}
+                    title={isPast ? "Date in the past" : isBlocked ? (blockReason ? `No service: ${blockReason}` : "No service on this date") : undefined}
                     className={[
                       "rounded-md py-2 font-mono text-sm transition-colors w-full",
                       isSelected
