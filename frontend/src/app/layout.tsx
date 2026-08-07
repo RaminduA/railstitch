@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter, IBM_Plex_Mono } from "next/font/google";
-import Link from "next/link";
 import "./globals.css";
 import { SiteHeader } from "@/components/SiteHeader";
+import { SessionWrapper } from "@/components/SessionWrapper";
+import { SiteFooter } from "@/components/SiteFooter";
 
 const fraunces = Fraunces({
   variable: "--font-fraunces",
@@ -39,16 +40,11 @@ export default function RootLayout({
       className={`${fraunces.variable} ${inter.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-paper text-ink">
+        <SessionWrapper>
         <SiteHeader />
         {children}
-        <footer className="border-t border-rail-green/15 mt-auto">
-          <div className="max-w-4xl mx-auto px-6 py-6 flex items-center justify-between font-mono text-xs text-ink/50">
-            <span>Railstitch &middot; Colombo Fort &ndash; Badulla</span>
-            <Link href="/admin" className="hover:text-brass transition-colors">
-              Department view
-            </Link>
-          </div>
-        </footer>
+        <SiteFooter />
+        </SessionWrapper>
       </body>
     </html>
   );

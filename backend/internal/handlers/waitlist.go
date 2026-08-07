@@ -175,7 +175,7 @@ func (a *API) tryPromoteWaitlist(tripID int) (bool, error) {
 			PassengerType:      p.pType,
 		})
 
-		booking, err := a.tryInsertBooking(tripID, candidates[0], origin, dest, p.passenger, p.pType, quotedFare)
+		booking, err := a.tryInsertBooking(tripID, candidates[0], origin, dest, p.passenger, p.pType, quotedFare, "")
 		if err == nil {
 			_, _ = a.DB.Exec(`
 				UPDATE waitlist_entries SET status = 'promoted', promoted_booking_id = $1

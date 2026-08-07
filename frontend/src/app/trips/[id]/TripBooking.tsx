@@ -79,6 +79,8 @@ export function TripBooking({ trip, stations, stops }: Props) {
           stops={stops}
           selectedIds={selectedIds}
           direction={trip.direction}
+          serviceDate={trip.service_date}
+          tripId={trip.id}
           onSelect={handleSelect}
         />
       </div>
