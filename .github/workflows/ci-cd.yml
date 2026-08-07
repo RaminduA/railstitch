@@ -1,0 +1,89 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  ci:
+    name: Build & Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Go
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Go build
+        working-directory: backend
+        run: CGO_ENABLED=0 go build ./...
+
+      - name: Go vet
+        working-directory: backend
+        run: go vet ./...
+
+      - name: Go test
+        working-directory: backend
+        run: go test ./...
+
+      # Node/TypeScript/ESLint
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund --legacy-peer-deps
+
+      - name: TypeScript check
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: ESLint
+        working-directory: frontend
+        run: npx eslint src/
+
+      # Docker Compose build
+      - name: Docker Compose build
+        run: docker compose build
+
+  cd:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: ci
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Deploy to Vercel
+      - name: Set up Node (for Vercel CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Deploy to Vercel
+        working-directory: frontend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: vercel --prod --token $VERCEL_TOKEN
+
+      # Deploy to Render
+      - name: Deploy to Render
+        run: |
+          curl --fail -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          
