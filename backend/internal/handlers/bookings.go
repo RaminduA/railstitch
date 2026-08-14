@@ -230,6 +230,8 @@ func (a *API) CreateBooking(w http.ResponseWriter, r *http.Request, tripID int) 
 		var n string
 		if err := a.DB.QueryRow(`SELECT name FROM users WHERE id = $1`, req.UserID).Scan(&n); err == nil && n != "" {
 			passengerName = n
+		} else {
+			req.UserID = ""
 		}
 	}
 

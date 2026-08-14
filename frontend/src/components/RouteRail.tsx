@@ -186,13 +186,15 @@ export function RouteRail({ stations, stops, selectedIds, direction, serviceDate
       </div>
 
       {/* Route Rail diagram */}
-      <div ref={scrollRef} className="overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+      <div ref={scrollRef} className="overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}>
+        <div style={{ minWidth: totalW, width: totalW }}>
         <style>{`.rail-scroll::-webkit-scrollbar { display: none; }`}</style>
         <div className="rail-scroll">
           <svg
             viewBox={`0 0 ${totalW} ${SVG_H}`}
             width={totalW}
             height={SVG_H}
+            style={{ display: "block", minHeight: SVG_H }}
             className="select-none"
             role="group"
             aria-label="Route diagram"
@@ -271,6 +273,7 @@ export function RouteRail({ stations, stops, selectedIds, direction, serviceDate
               );
             })}
           </svg>
+          </div>
         </div>
       </div>
 

@@ -258,11 +258,23 @@ export function SeatPicker({ tripId, originId, destId }: Props) {
             return (
               <div key={sel.seatId} className="flex items-center gap-3 flex-wrap">
                 <span className="font-mono text-xs text-ink/60 w-16 shrink-0">{seat ? `${seat.coach_number}-${seat.seat_number}` : `#${sel.seatId}`}</span>
-                <select value={ptypes[sel.seatId] ?? "adult"}
-                  onChange={(e) => setPtypes((p) => ({ ...p, [sel.seatId]: e.target.value }))}
-                  className="rounded-md border border-rail-green/20 bg-white/70 px-2 py-1.5 text-sm outline-none focus:border-brass">
-                  {PTYPES.map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-                </select>
+                <div className="flex gap-3 flex-wrap">
+                  {PTYPES.map((t) => (
+                    <label key={t} className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name={`ptype-${sel.seatId}`}
+                        value={t}
+                        checked={(ptypes[sel.seatId] ?? "adult") === t}
+                        onChange={() => setPtypes((p) => ({ ...p, [sel.seatId]: t }))}
+                        className="accent-brass"
+                      />
+                      <span className="font-mono text-xs text-ink/70">
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                      </span>
+                    </label>
+                  ))}
+                </div>
                 <span className="font-mono text-sm text-brass font-medium">Rs. {fare(sel.seatId, sel.coachClass)}</span>
                 <button onClick={() => toggle(sel.seatId, sel.coachClass)} className="text-ink/30 hover:text-signal-rust text-xl ml-auto">×</button>
               </div>
