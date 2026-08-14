@@ -1,4 +1,10 @@
+"use client";
+
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { UnauthorizedPage } from "@/components/UnauthorizedPage";
+
+function Spinner() { return <div className="flex-1 flex items-center justify-center py-20"><div className="w-8 h-8 rounded-full border-2 border-rail-green/20 border-t-rail-green animate-spin" /></div>; }
 
 const ADMIN_CARDS = [
   {
@@ -14,6 +20,12 @@ const ADMIN_CARDS = [
 ];
 
 export default function AdminPage() {
+  const { data: session, status } = useSession();
+  const user = session?.user as { isAdmin?: boolean } | undefined;
+  const isLoading = status === "loading";
+  const isUnauthorized = !isLoading && (!session || !user?.isAdmin);
+  if (isLoading) return <Spinner />;
+  if (isUnauthorized) return <UnauthorizedPage title="Admin only" message="This area is restricted to railway department staff." />;
   return (
     <main className="flex-1 px-6 py-12">
       <div className="max-w-3xl mx-auto">

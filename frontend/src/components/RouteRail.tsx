@@ -111,14 +111,19 @@ export function RouteRail({ stations, stops, selectedIds, direction, serviceDate
     else { originId = sa >= sb ? a : b; destId = sa >= sb ? b : a; }
   } else if (selectedIds.length === 1) originId = selectedIds[0];
 
-  // Compute x positions
-  const dists = display.map((s) => s.distance_km);
-  const dMin = Math.min(...dists), dMax = Math.max(...dists);
+  const rawDists = display.map((s) => s.distance_km);
+  const globalMax = Math.max(...rawDists);
+  const effectiveDists = direction === "inbound"
+    ? rawDists.map((d) => globalMax - d)
+    : rawDists;
+  const dMin = Math.min(...effectiveDists), dMax = Math.max(...effectiveDists);
   const range = dMax - dMin;
   const xs: number[] = [];
   let prev = -Infinity;
-  for (const s of display) {
-    const frac = range > 0 ? (s.distance_km - dMin) / range : 0;
+  for (let _si = 0; _si < display.length; _si++) {
+    const s = display[_si];
+    const eff = effectiveDists[_si];
+    const frac = range > 0 ? (eff - dMin) / range : 0;
     let x = PAD + frac * TRACK_W;
     if (x < prev + MIN_GAP) x = prev + MIN_GAP;
     xs.push(x);

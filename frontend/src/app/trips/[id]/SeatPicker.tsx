@@ -13,7 +13,13 @@ import {
 } from "@/lib/api";
 import type { AppUser } from "@/lib/auth";
 
-type Props = { tripId: number; originId: number; destId: number };
+type Props = {
+  tripId: number;
+  originId: number;
+  destId: number;
+  initialSeats?: { seatId: number; coachClass: string }[];
+  initialPtypes?: Record<number, string>;
+};
 
 const CLASS_LABELS: Record<string, string> = {
   first:  "1st Class — Air Conditioned",
@@ -38,15 +44,15 @@ const LAYOUT: Record<string, { left: number; right: number; rows: number }> = {
 type Sel = { seatId: number; coachClass: string };
 type Suggested = { seatId: number; seatNum: number; coachClass: string } | null;
 
-export function SeatPicker({ tripId, originId, destId }: Props) {
+export function SeatPicker({ tripId, originId, destId, initialSeats = [], initialPtypes = {} }: Props) {
   const { data: session } = useSession();
   const user = session?.user as AppUser | undefined;
 
   const [loading, setLoading] = useState(true);
   const [avail, setAvail] = useState<AvailabilityResponse | null>(null);
   const [fares, setFares] = useState<FareCell[]>([]);
-  const [selected, setSelected] = useState<Sel[]>([]);
-  const [ptypes, setPtypes] = useState<Record<number, string>>({});
+  const [selected, setSelected] = useState<Sel[]>(initialSeats);
+  const [ptypes, setPtypes] = useState<Record<number, string>>(initialPtypes);
   const [busy, setBusy] = useState(false);
   const [confirmed, setConfirmed] = useState<Booking[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -256,27 +262,31 @@ export function SeatPicker({ tripId, originId, destId }: Props) {
           {selected.map((sel) => {
             const seat = coaches.flatMap((c) => c.seats).find((s) => s.seat_id === sel.seatId);
             return (
-              <div key={sel.seatId} className="flex items-center gap-3 flex-wrap">
-                <span className="font-mono text-xs text-ink/60 w-16 shrink-0">{seat ? `${seat.coach_number}-${seat.seat_number}` : `#${sel.seatId}`}</span>
-                <div className="flex gap-3 flex-wrap">
+              <div key={sel.seatId} className="flex flex-col gap-2 py-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs text-ink/60">{seat ? `${seat.coach_number} — Seat ${seat.seat_number}` : `#${sel.seatId}`}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-sm text-brass font-semibold">Rs. {fare(sel.seatId, sel.coachClass)}</span>
+                    <button onClick={() => toggle(sel.seatId, sel.coachClass)} className="text-ink/30 hover:text-signal-rust text-xl leading-none">×</button>
+                  </div>
+                </div>
+                <div className="flex gap-5 flex-wrap">
                   {PTYPES.map((t) => (
-                    <label key={t} className="flex items-center gap-1.5 cursor-pointer">
+                    <label key={t} className="flex items-center gap-2 cursor-pointer select-none">
                       <input
                         type="radio"
                         name={`ptype-${sel.seatId}`}
                         value={t}
                         checked={(ptypes[sel.seatId] ?? "adult") === t}
                         onChange={() => setPtypes((p) => ({ ...p, [sel.seatId]: t }))}
-                        className="accent-brass"
+                        className="accent-brass w-4 h-4"
                       />
-                      <span className="font-mono text-xs text-ink/70">
+                      <span className="font-mono text-sm text-ink/70">
                         {t.charAt(0).toUpperCase() + t.slice(1)}
                       </span>
                     </label>
                   ))}
                 </div>
-                <span className="font-mono text-sm text-brass font-medium">Rs. {fare(sel.seatId, sel.coachClass)}</span>
-                <button onClick={() => toggle(sel.seatId, sel.coachClass)} className="text-ink/30 hover:text-signal-rust text-xl ml-auto">×</button>
               </div>
             );
           })}

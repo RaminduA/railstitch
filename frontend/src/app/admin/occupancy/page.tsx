@@ -61,18 +61,32 @@ export default function OccupancyPage() {
   const todayYMD = toYMD(today);
 
   useEffect(() => {
-    api.getTrips(1).then(async (trips) => {
-      const todayTrips = trips.filter((t) => t.service_date === todayYMD);
-      const cards: TodayCard[] = [];
-      for (const t of todayTrips) {
-        try {
-          const s = await api.getTripSummary(t.id);
-          cards.push({ tripId: t.id, tripName: t.name, direction: t.direction, revenue: s.total_revenue, confirmed: s.confirmed_bookings, cancelled: s.cancelled_bookings });
-        } catch { /* skip */ }
-      }
-      setTodayCards(cards);
+    const combos = [
+      { train_name: "Podi Menike",    direction: "outbound" as const },
+      { train_name: "Podi Menike",    direction: "inbound"  as const },
+      { train_name: "Udarata Menike", direction: "outbound" as const },
+      { train_name: "Udarata Menike", direction: "inbound"  as const },
+    ];
+    Promise.all(
+      combos.map((combo) =>
+        api.findOrCreateTrip({ train_name: combo.train_name, service_date: todayYMD, direction: combo.direction })
+          .then(async (trip) => {
+            const s = await api.getTripSummary(trip.id);
+            return {
+              tripId: trip.id,
+              tripName: combo.train_name,
+              direction: combo.direction,
+              revenue: s.total_revenue,
+              confirmed: s.confirmed_bookings,
+              cancelled: s.cancelled_bookings,
+            } as TodayCard;
+          })
+          .catch(() => null),
+      ),
+    ).then((results) => {
+      setTodayCards(results.filter(Boolean) as TodayCard[]);
       setTodayLoading(false);
-    }).catch(() => setTodayLoading(false));
+    });
   }, [todayYMD]);
 
   function calDays(): (Date | null)[] {

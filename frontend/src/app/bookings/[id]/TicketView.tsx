@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import type { Booking, Trip } from "@/lib/api";
@@ -29,6 +30,7 @@ export function TicketView({ booking, trip, canCancel }: Props) {
   const router = useRouter();
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const isCancelled = booking.status === "cancelled";
 
   // Compute expired state from timing fields
@@ -57,7 +59,7 @@ export function TicketView({ booking, trip, canCancel }: Props) {
   }, [verifyUrl]);
 
   async function handleCancel() {
-    if (!confirm("Cancel this booking? This cannot be undone.")) return;
+    // dialog handles confirmation
     setCancelling(true);
     try {
       await api.cancelBooking(booking.id);
@@ -239,7 +241,7 @@ export function TicketView({ booking, trip, canCancel }: Props) {
         </button>
         {canCancel && !isCancelled && (
           <button
-            onClick={handleCancel}
+            onClick={() => setShowCancelDialog(true)}
             disabled={cancelling}
             className="rounded-lg border border-signal-rust/40 text-signal-rust px-5 py-2 font-mono text-sm hover:bg-signal-rust hover:text-paper transition-colors disabled:opacity-40"
           >
@@ -250,6 +252,17 @@ export function TicketView({ booking, trip, canCancel }: Props) {
           <span className="font-mono text-sm text-ink/40">This booking has been cancelled.</span>
         )}
       </div>
+
+      <ConfirmDialog
+        open={showCancelDialog}
+        title="Cancel booking?"
+        message="This cannot be undone. Your seat will be released and may be taken by another passenger."
+        confirmLabel="Yes, cancel booking"
+        cancelLabel="Keep booking"
+        danger
+        onConfirm={() => { setShowCancelDialog(false); handleCancel(); }}
+        onCancel={() => setShowCancelDialog(false)}
+      />
 
       {/* Print-only styles */}
       <style>{`

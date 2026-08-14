@@ -5,6 +5,8 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { api, type Booking } from "@/lib/api";
 import type { AppUser } from "@/lib/auth";
+import { UnauthorizedPage } from "@/components/UnauthorizedPage";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 type CancelState = "cancellable" | "in-use" | "expired" | "cancelled";
 
@@ -41,11 +43,12 @@ function cancelTooltip(state: CancelState): string {
 }
 
 export default function BookingHistoryPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const user = session?.user as AppUser | undefined;
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [confirmId, setConfirmId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user?.googleId) return;
@@ -57,7 +60,6 @@ export default function BookingHistoryPage() {
   }, [user?.googleId]);
 
   async function handleCancel(bookingId: number) {
-    if (!confirm("Cancel this booking? This cannot be undone.")) return;
     setCancellingId(bookingId);
     try {
       await api.cancelBooking(bookingId);
@@ -70,6 +72,10 @@ export default function BookingHistoryPage() {
       setCancellingId(null);
     }
   }
+
+  if (status === "loading") return <div className="flex-1 flex items-center justify-center py-20"><div className="w-8 h-8 rounded-full border-2 border-rail-green/20 border-t-rail-green animate-spin" /></div>;
+  if (!session) return <UnauthorizedPage title="Sign in required" message="Please sign in to view your booking history." />;
+  if (user?.isAdmin) return <UnauthorizedPage title="Admin area" message="Admins do not have passenger bookings." />;
 
   return (
     <main className="flex-1 px-6 py-12">
@@ -134,7 +140,7 @@ export default function BookingHistoryPage() {
                     <div title={tooltip || undefined}>
                       {canCancel ? (
                         <button
-                          onClick={() => handleCancel(b.id)}
+                          onClick={() => setConfirmId(b.id)}
                           disabled={cancellingId === b.id}
                           className="rounded-md border border-signal-rust/50 text-signal-rust px-3 py-1.5 text-sm hover:bg-signal-rust hover:text-paper transition-colors disabled:opacity-40"
                         >
@@ -153,6 +159,18 @@ export default function BookingHistoryPage() {
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmId !== null}
+        title="Cancel booking?"
+        message="This cannot be undone. Your seat will be released and may be taken by another passenger."
+        confirmLabel="Yes, cancel booking"
+        cancelLabel="Keep booking"
+        danger
+        onConfirm={() => {
+          if (confirmId !== null) { handleCancel(confirmId); setConfirmId(null); }
+        }}
+        onCancel={() => setConfirmId(null)}
+      />
     </main>
   );
 }

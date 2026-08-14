@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { UnauthorizedPage } from "@/components/UnauthorizedPage";
 import type { Station, Trip, TripStop } from "@/lib/api";
 import { RouteRail } from "@/components/RouteRail";
 import { SeatPicker } from "./SeatPicker";
@@ -12,10 +13,23 @@ type Props = {
   stops: TripStop[];
 };
 
+type RestoredSeat = { seatId: number; coachClass: string };
+
+function LoadingSpinner() {
+  return (
+    <div className="flex-1 flex items-center justify-center py-20">
+      <div className="w-8 h-8 rounded-full border-2 border-rail-green/20 border-t-rail-green animate-spin" />
+    </div>
+  );
+}
+
 export function TripBooking({ trip, stations, stops }: Props) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const sessionUser = session?.user as { googleId?: string; isAdmin?: boolean } | undefined;
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [restoredState, setRestoredState] = useState<{ originId: number; destId: number } | null>(null);
+  const [restoredSeats, setRestoredSeats] = useState<RestoredSeat[]>([]);
+  const [restoredPtypes, setRestoredPtypes] = useState<Record<number, string>>({});
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Restore booking state after OAuth redirect
@@ -24,14 +38,18 @@ export function TripBooking({ trip, stations, stops }: Props) {
     const raw = sessionStorage.getItem("railstitch:booking");
     if (!raw) return;
     try {
-      const saved = JSON.parse(raw) as { tripId: number; originId: number; destId: number };
+      const saved = JSON.parse(raw) as {
+        tripId: number; originId: number; destId: number;
+        selected?: RestoredSeat[]; ptypes?: Record<number, string>;
+      };
       if (saved.tripId !== trip.id) return;
       sessionStorage.removeItem("railstitch:booking");
-      const oids = [saved.originId, saved.destId];
       queueMicrotask(() => {
-        setSelectedIds(oids);
+        setSelectedIds([saved.originId, saved.destId]);
         setRestoredState({ originId: saved.originId, destId: saved.destId });
-        setToastMsg("Welcome back — your selections are saved.");
+        if (saved.selected?.length) setRestoredSeats(saved.selected);
+        if (saved.ptypes && Object.keys(saved.ptypes).length) setRestoredPtypes(saved.ptypes);
+        setToastMsg("Welcome back — your seat selections are saved. Please confirm to book.");
       });
       setTimeout(() => setToastMsg(null), 4000);
     } catch { /* ignore */ }
@@ -81,6 +99,10 @@ export function TripBooking({ trip, stations, stops }: Props) {
     trip.direction === "outbound"
       ? "Colombo Fort → Badulla"
       : "Badulla → Colombo Fort";
+
+  // Auth checks after all hooks
+  if (status === "loading") return <LoadingSpinner />;
+  if (sessionUser?.isAdmin) return <UnauthorizedPage title="Admin area" message="Admins cannot access passenger booking pages. Use the admin dashboard instead." />;
 
   return (
     <div className="flex flex-col gap-6">
@@ -137,6 +159,8 @@ export function TripBooking({ trip, stations, stops }: Props) {
             tripId={trip.id}
             originId={origin.id}
             destId={dest.id}
+            initialSeats={restoredSeats}
+            initialPtypes={restoredPtypes}
           />
         </>
       )}

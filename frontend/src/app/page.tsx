@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -67,6 +68,9 @@ export default function LandingPage() {
         <p className="font-mono text-xs text-ink/40 mt-4">
           New to Railstitch? Signing in creates your account automatically.
         </p>
+        <Link href="/trains" className="font-mono text-xs text-ink/50 hover:text-brass transition-colors mt-2 inline-block">
+          Browse trains without signing in →
+        </Link>
       </section>
 
       {/* Info strip */}

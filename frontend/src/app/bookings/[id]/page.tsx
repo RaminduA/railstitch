@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { TicketView } from "./TicketView";
+import { UnauthorizedPage } from "@/components/UnauthorizedPage";
 
 export default async function BookingPage({
   params,
@@ -22,6 +23,11 @@ export default async function BookingPage({
   const user = _session?.user as { googleId?: string; isAdmin?: boolean } | undefined;
   const isOwner = !!user?.googleId && user.googleId === booking.user_id;
   const canCancel = isOwner;
+
+  // Only the booking owner can view their ticket
+  if (booking.user_id && !isOwner) {
+    return <UnauthorizedPage title="Not your ticket" message="You can only view tickets from your own bookings." />;
+  }
 
   // Fetch trip info for the ticket
   const trips = await api.getTrips(1);
