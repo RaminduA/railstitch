@@ -106,6 +106,14 @@ func main() {
 				}
 				api.Availability(w, r, id)
 			})
+			r.Get("/fare-table", func(w http.ResponseWriter, r *http.Request) {
+				id, ok := intParam(r, "tripID")
+				if !ok {
+					http.Error(w, "invalid trip id", 400)
+					return
+				}
+				api.FareTable(w, r, id)
+			})
 			r.Post("/bookings", func(w http.ResponseWriter, r *http.Request) {
 				id, ok := intParam(r, "tripID")
 				if !ok {

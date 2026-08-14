@@ -26,6 +26,9 @@ function startOfDay(d: Date): Date {
 
 export default function OccupancyPage() {
   const router = useRouter();
+  type TodayCard = { tripId: number; tripName: string; direction: string; revenue: number; confirmed: number; cancelled: number };
+  const [todayCards, setTodayCards] = useState<TodayCard[]>([]);
+  const [todayLoading, setTodayLoading] = useState(true);
   const [trainName, setTrainName] = useState<string | null>(null);
   const [direction, setDirection] = useState<"outbound" | "inbound">("outbound");
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
@@ -55,6 +58,22 @@ export default function OccupancyPage() {
   }, [calYear, calMonth, fetchBlocked]);
 
   const today = startOfDay(new Date());
+  const todayYMD = toYMD(today);
+
+  useEffect(() => {
+    api.getTrips(1).then(async (trips) => {
+      const todayTrips = trips.filter((t) => t.service_date === todayYMD);
+      const cards: TodayCard[] = [];
+      for (const t of todayTrips) {
+        try {
+          const s = await api.getTripSummary(t.id);
+          cards.push({ tripId: t.id, tripName: t.name, direction: t.direction, revenue: s.total_revenue, confirmed: s.confirmed_bookings, cancelled: s.cancelled_bookings });
+        } catch { /* skip */ }
+      }
+      setTodayCards(cards);
+      setTodayLoading(false);
+    }).catch(() => setTodayLoading(false));
+  }, [todayYMD]);
 
   function calDays(): (Date | null)[] {
     const first = new Date(calYear, calMonth, 1);
@@ -106,6 +125,30 @@ export default function OccupancyPage() {
         </Link>
         <p className="font-mono text-xs tracking-[0.2em] uppercase text-rail-green/70 mb-2">Department view</p>
         <h1 className="font-display text-4xl text-rail-green mb-8">Occupancy &amp; Revenue</h1>
+
+        {/* Today summary */}
+        <div className="mb-8">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50 mb-3">Today&apos;s services</p>
+          {todayLoading ? (
+            <div className="grid grid-cols-2 gap-3 animate-pulse">{[0,1,2,3].map((i) => <div key={i} className="h-20 rounded-lg bg-rail-green/10" />)}</div>
+          ) : todayCards.length === 0 ? (
+            <p className="font-mono text-sm text-ink/40">No trips have been created for today yet — passengers create them on first booking.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {todayCards.map((card) => (
+                <div key={card.tripId} className="rounded-lg border border-rail-green/15 bg-white/40 px-4 py-3">
+                  <p className="font-display text-base text-rail-green">{card.tripName}</p>
+                  <p className="font-mono text-xs text-ink/50 mb-2">{card.direction === "outbound" ? "Colombo Fort → Badulla" : "Badulla → Colombo Fort"}</p>
+                  <div className="flex gap-4">
+                    <span><p className="font-mono text-[9px] text-ink/40 uppercase">Revenue</p><p className="font-mono text-sm text-brass font-medium">Rs. {card.revenue.toLocaleString()}</p></span>
+                    <span><p className="font-mono text-[9px] text-ink/40 uppercase">Confirmed</p><p className="font-mono text-sm text-rail-green font-medium">{card.confirmed}</p></span>
+                    <span><p className="font-mono text-[9px] text-ink/40 uppercase">Cancelled</p><p className="font-mono text-sm text-ink/50 font-medium">{card.cancelled}</p></span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Step 1: Train */}
         <div className="mb-6">

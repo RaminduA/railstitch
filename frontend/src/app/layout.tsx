@@ -4,6 +4,7 @@ import "./globals.css";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SessionWrapper } from "@/components/SessionWrapper";
 import { SiteFooter } from "@/components/SiteFooter";
+import { BookingProgress } from "@/components/BookingProgress";
 
 const fraunces = Fraunces({
   variable: "--font-fraunces",
@@ -42,6 +43,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-paper text-ink">
         <SessionWrapper>
         <SiteHeader />
+        <BookingProgress />
         {children}
         <SiteFooter />
         </SessionWrapper>

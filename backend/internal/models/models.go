@@ -109,7 +109,6 @@ type BookingRequest struct {
 	OriginStationID int    `json:"origin_station_id"`
 	DestStationID   int    `json:"dest_station_id"`
 	SeatID          int    `json:"seat_id"`
-	PassengerName   string `json:"passenger_name"`
 	PassengerType   string `json:"passenger_type"` // "adult"|"child"|"student"|"senior"
 	Class           string `json:"class"`          // "first"|"second"|"third"
 	UserID          string `json:"user_id"`        // Google sub, optional
@@ -121,4 +120,5 @@ type WaitlistRequest struct {
 	Class           string `json:"class"`
 	PassengerName   string `json:"passenger_name"`
 	PassengerType   string `json:"passenger_type"`
+	UserID          string `json:"user_id"`
 }

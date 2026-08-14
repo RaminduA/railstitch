@@ -221,12 +221,16 @@ func (a *API) CreateBooking(w http.ResponseWriter, r *http.Request, tripID int) 
 		writeErr(w, 400, "invalid request body")
 		return
 	}
-	if req.PassengerName == "" {
-		writeErr(w, 400, "passenger_name is required")
-		return
-	}
 	if req.PassengerType == "" {
 		req.PassengerType = "adult"
+	}
+	// Auto fill passenger name from authenticated user account
+	passengerName := "Passenger"
+	if req.UserID != "" {
+		var n string
+		if err := a.DB.QueryRow(`SELECT name FROM users WHERE id = $1`, req.UserID).Scan(&n); err == nil && n != "" {
+			passengerName = n
+		}
 	}
 
 	_, serviceDate, _, err := a.getTripFull(tripID)
@@ -309,7 +313,7 @@ func (a *API) CreateBooking(w http.ResponseWriter, r *http.Request, tripID int) 
 
 	var booked *models.Booking
 	for _, seatID := range candidateSeatIDs {
-		b, err := a.tryInsertBooking(tripID, seatID, origin, dest, req.PassengerName, req.PassengerType, quotedFare, req.UserID)
+		b, err := a.tryInsertBooking(tripID, seatID, origin, dest, passengerName, req.PassengerType, quotedFare, req.UserID)
 		if err == nil {
 			booked = b
 			break
@@ -368,6 +372,49 @@ func (a *API) tryInsertBooking(tripID, seatID int, origin, dest stationInfo,
 		return nil, err
 	}
 	return &b, nil
+}
+
+// GET /api/trips/:id/fare-table?origin=&dest=
+func (a *API) FareTable(w http.ResponseWriter, r *http.Request, tripID int) {
+	originID, err1 := strconv.Atoi(r.URL.Query().Get("origin"))
+	destID, err2 := strconv.Atoi(r.URL.Query().Get("dest"))
+	if err1 != nil || err2 != nil {
+		writeErr(w, 400, "origin and dest are required")
+		return
+	}
+	_, serviceDate, _, err := a.getTripFull(tripID)
+	if err != nil {
+		writeErr(w, 404, "trip not found")
+		return
+	}
+	origin, err := a.getStation(originID)
+	if err != nil {
+		writeErr(w, 400, "unknown origin station")
+		return
+	}
+	dest, err := a.getStation(destID)
+	if err != nil {
+		writeErr(w, 400, "unknown dest station")
+		return
+	}
+	type FareCell struct {
+		Class         string `json:"class"`
+		PassengerType string `json:"passenger_type"`
+		Fare          int    `json:"fare"`
+	}
+	classes := []string{"first", "second", "third"}
+	pTypes := []string{"adult", "child", "student", "senior"}
+	var cells []FareCell
+	for _, cl := range classes {
+		for _, pt := range pTypes {
+			cells = append(cells, FareCell{
+				Class:         cl,
+				PassengerType: pt,
+				Fare:          a.computeFare(tripID, origin, dest, cl, pt, serviceDate),
+			})
+		}
+	}
+	writeJSON(w, 200, cells)
 }
 
 func (a *API) getBookingByID(id int) (*models.Booking, error) {

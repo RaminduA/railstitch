@@ -1,469 +1,437 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import type { AppUser } from "@/lib/auth";
+import { useSession, signIn } from "next-auth/react";
+import Link from "next/link";
 import {
   api,
   type AvailabilityResponse,
   type Booking,
   type CoachWithSeats,
   type SeatWithStatus,
+  type FareCell,
 } from "@/lib/api";
-import { addMyBooking } from "@/lib/myBookings";
+import type { AppUser } from "@/lib/auth";
 
-type Props = {
-  tripId: number;
-  originId: number;
-  destId: number;
-};
-
-type Status = "loading" | "ready" | "error";
+type Props = { tripId: number; originId: number; destId: number };
 
 const CLASS_LABELS: Record<string, string> = {
   first:  "1st Class — Air Conditioned",
   second: "2nd Class — Reserved",
   third:  "3rd Class — Reserved",
 };
+const CLASS_MULT: Record<string, string> = { first: "3×", second: "1.8×", third: "1×" };
+const PTYPE_MULT: Record<string, string> = { adult: "1×", child: "0.5×", student: "0.7×", senior: "0.75×" };
+const PTYPES = ["adult", "child", "student", "senior"] as const;
 
-const CLASS_STYLES: Record<string, { panel: string; header: string; available: string; selected: string; occupied: string }> = {
-  first: {
-    panel:    "bg-amber-50 border-amber-200",
-    header:   "text-amber-900",
-    available:"bg-white border-amber-300 text-amber-800 hover:border-amber-500",
-    selected: "bg-amber-600 border-amber-600 text-white",
-    occupied: "bg-red-100 border-red-300 text-red-400 cursor-not-allowed",
-  },
-  second: {
-    panel:    "bg-sky-50 border-sky-200",
-    header:   "text-sky-900",
-    available:"bg-white border-sky-300 text-sky-800 hover:border-sky-500",
-    selected: "bg-sky-700 border-sky-700 text-white",
-    occupied: "bg-red-100 border-red-300 text-red-400 cursor-not-allowed",
-  },
-  third: {
-    panel:    "bg-emerald-50 border-emerald-200",
-    header:   "text-emerald-900",
-    available:"bg-white border-emerald-300 text-emerald-800 hover:border-emerald-500",
-    selected: "bg-emerald-700 border-emerald-700 text-white",
-    occupied: "bg-red-100 border-red-300 text-red-400 cursor-not-allowed",
-  },
+const STYLES: Record<string, Record<string, string>> = {
+  first:  { panel: "bg-amber-50/80 border-amber-200",   hdr: "text-amber-900", avail: "bg-white border-amber-300 hover:border-amber-500 text-amber-800",     sel: "bg-amber-600 border-amber-600 text-white",     occ: "bg-red-100 border-red-200 text-red-400 cursor-not-allowed" },
+  second: { panel: "bg-sky-50/80 border-sky-200",       hdr: "text-sky-900",   avail: "bg-white border-sky-300 hover:border-sky-500 text-sky-800",             sel: "bg-sky-700 border-sky-700 text-white",         occ: "bg-red-100 border-red-200 text-red-400 cursor-not-allowed" },
+  third:  { panel: "bg-emerald-50/80 border-emerald-200", hdr: "text-emerald-900", avail: "bg-white border-emerald-300 hover:border-emerald-500 text-emerald-800", sel: "bg-emerald-700 border-emerald-700 text-white", occ: "bg-red-100 border-red-200 text-red-400 cursor-not-allowed" },
 };
-
-// Coach layout config: seats per row for each side (left, right)
-// AFC: 2+2, 11 rows = 44 seats
-// SC:  2+2, 12 rows = 48 seats
-// TC:  3+3, 11 rows = 66 seats
 const LAYOUT: Record<string, { left: number; right: number; rows: number }> = {
-  first:  { left: 2, right: 2, rows: 11 },
+  first: { left: 2, right: 2, rows: 11 },
   second: { left: 2, right: 2, rows: 12 },
-  third:  { left: 3, right: 3, rows: 11 },
+  third: { left: 3, right: 3, rows: 11 },
 };
 
-const PASSENGER_TYPES = [
-  { value: "adult",   label: "Adult" },
-  { value: "child",   label: "Child" },
-  { value: "student", label: "Student" },
-  { value: "senior",  label: "Senior" },
-];
+type Sel = { seatId: number; coachClass: string };
+type Suggested = { seatId: number; seatNum: number; coachClass: string } | null;
 
 export function SeatPicker({ tripId, originId, destId }: Props) {
   const { data: session } = useSession();
   const user = session?.user as AppUser | undefined;
-  const [status, setStatus] = useState<Status>("loading");
-  const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
-  const [selectedSeats, setSelectedSeats] = useState<
-    { seatId: number; coachClass: string; fareAdult: number }[]
-  >([]);
-  const [passengerNames, setPassengerNames] = useState<Record<number, string>>({});
-  const [passengerTypes, setPassengerTypes] = useState<Record<number, string>>({});
-  const [submitting, setSubmitting] = useState(false);
-  const [confirmedBookings, setConfirmedBookings] = useState<Booking[]>([]);
+
+  const [loading, setLoading] = useState(true);
+  const [avail, setAvail] = useState<AvailabilityResponse | null>(null);
+  const [fares, setFares] = useState<FareCell[]>([]);
+  const [selected, setSelected] = useState<Sel[]>([]);
+  const [ptypes, setPtypes] = useState<Record<number, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [confirmed, setConfirmed] = useState<Booking[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [waitlistName, setWaitlistName] = useState("");
-  const [waitlistType, setWaitlistType] = useState("adult");
-  const [waitlisted, setWaitlisted] = useState(false);
+  const [waitlisted, setWaitlisted] = useState<{ pos: number; cls: string } | null>(null);
+  const [suggested, setSuggested] = useState<Suggested>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setStatus("loading");
-    api.getAvailability(tripId, originId, destId)
-      .then((res) => { if (!cancelled) { setAvailability(res); setStatus("ready"); } })
-      .catch(() => { if (!cancelled) setStatus("error"); });
-    return () => { cancelled = true; };
+    let gone = false;
+    Promise.all([
+      api.getAvailability(tripId, originId, destId),
+      api.getFareTable(tripId, originId, destId),
+    ]).then(([a, f]) => {
+      if (!gone) { setAvail(a); setFares(f); setLoading(false); }
+    }).catch(() => { if (!gone) setLoading(false); });
+    return () => { gone = true; };
   }, [tripId, originId, destId]);
 
-  async function refreshAvailability() {
-    const res = await api.getAvailability(tripId, originId, destId);
-    setAvailability(res);
+  async function reload() {
+    const a = await api.getAvailability(tripId, originId, destId);
+    setAvail(a);
   }
 
-  function toggleSeat(seatId: number, coachClass: string, fareAdult: number) {
-    setSelectedSeats((prev) => {
-      const exists = prev.find((s) => s.seatId === seatId);
-      if (exists) {
-        setPassengerNames((n) => { const c = { ...n }; delete c[seatId]; return c; });
-        setPassengerTypes((t) => { const c = { ...t }; delete c[seatId]; return c; });
+  function toggle(seatId: number, cls: string) {
+    setSelected((prev) => {
+      if (prev.find((s) => s.seatId === seatId)) {
+        setPtypes((p) => { const c = { ...p }; delete c[seatId]; return c; });
         return prev.filter((s) => s.seatId !== seatId);
       }
-      return [...prev, { seatId, coachClass, fareAdult }];
+      return [...prev, { seatId, coachClass: cls }];
     });
   }
 
-  function fareForSeat(seatId: number, fareAdult: number): number {
-    const type = passengerTypes[seatId] ?? "adult";
-    const mult: Record<string, number> = { adult: 1, child: 0.5, student: 0.7, senior: 0.75 };
-    return Math.round(fareAdult * (mult[type] ?? 1) / 10) * 10;
+  function fare(seatId: number, cls: string) {
+    const pt = ptypes[seatId] ?? "adult";
+    return fares.find((f) => f.class === cls && f.passenger_type === pt)?.fare ?? 0;
   }
 
-  const allFilled = selectedSeats.length > 0 &&
-    selectedSeats.every((s) => passengerNames[s.seatId]?.trim());
+  function nextAvailable(takenId: number, cls: string): Suggested {
+    const coach = avail?.coaches.find((c) => c.class === cls && c.seats.some((s) => s.seat_id === takenId));
+    const next = coach?.seats.find((s) => s.available && s.seat_id !== takenId);
+    if (!next || !coach) return null;
+    return { seatId: next.seat_id, seatNum: next.seat_number, coachClass: cls };
+  }
 
-  async function handleBookAll() {
-    if (!allFilled) return;
-    setSubmitting(true);
-    setError(null);
+  async function book() {
+    if (!session) {
+      sessionStorage.setItem("railstitch:booking", JSON.stringify({ tripId, originId, destId, selected, ptypes }));
+      signIn("google", { callbackUrl: `/trips/${tripId}` });
+      return;
+    }
+    if (selected.length === 0) return;
+    setBusy(true); setError(null); setSuggested(null);
+
     const results = await Promise.allSettled(
-      selectedSeats.map((s) =>
+      selected.map((s) =>
         api.createBooking(tripId, {
           origin_station_id: originId,
           dest_station_id: destId,
-          passenger_name: passengerNames[s.seatId].trim(),
-          passenger_type: passengerTypes[s.seatId] ?? "adult",
+          passenger_type: ptypes[s.seatId] ?? "adult",
           seat_id: s.seatId,
           class: s.coachClass,
           user_id: user?.googleId,
         }),
       ),
     );
-    const succeeded: Booking[] = [];
-    const failedIds: number[] = [];
+
+    const ok: Booking[] = [];
+    const fail: Sel[] = [];
     results.forEach((r, i) => {
-      if (r.status === "fulfilled") succeeded.push(r.value);
-      else failedIds.push(selectedSeats[i].seatId);
+      if (r.status === "fulfilled") ok.push(r.value);
+      else fail.push(selected[i]);
     });
-    if (succeeded.length > 0) {
-      setConfirmedBookings((p) => [...p, ...succeeded]);
-      succeeded.forEach(addMyBooking);
-    }
-    await refreshAvailability();
-    if (failedIds.length > 0) {
-      setSelectedSeats((p) => p.filter((s) => failedIds.includes(s.seatId)));
-      setError(
-        failedIds.length === selectedSeats.length
-          ? "Those seats were just taken. Pick different seats."
-          : `${succeeded.length} confirmed. ${failedIds.length} taken — pick again.`,
-      );
+    if (ok.length) setConfirmed((p) => [...p, ...ok]);
+    await reload();
+
+    if (fail.length) {
+      const sugg = nextAvailable(fail[0].seatId, fail[0].coachClass);
+      if (sugg) {
+        setSuggested(sugg);
+        setSelected([{ seatId: sugg.seatId, coachClass: sugg.coachClass }]);
+        setPtypes({ [sugg.seatId]: ptypes[fail[0].seatId] ?? "adult" });
+      } else {
+        setSelected([]);
+        setError("no-seats");
+      }
     } else {
-      setSelectedSeats([]);
-      setPassengerNames({});
-      setPassengerTypes({});
+      setSelected([]); setPtypes({});
     }
-    setSubmitting(false);
+    setBusy(false);
   }
 
-  async function handleWaitlist() {
-    if (!waitlistName.trim()) return;
-    setSubmitting(true);
+  async function joinWaitlist(cls: string) {
+    setBusy(true);
     try {
-      await api.createWaitlistEntry(tripId, {
+      const r = await api.createWaitlistEntry(tripId, {
         origin_station_id: originId,
         dest_station_id: destId,
-        passenger_name: waitlistName.trim(),
-        passenger_type: waitlistType,
+        class: cls,
+        user_id: user?.googleId,
       });
-      setWaitlisted(true);
+      setWaitlisted({ pos: r.queue_position, cls });
     } catch {
-      setError("Couldn't join the waitlist. Please try again.");
+      setError("Failed to join waitlist.");
     } finally {
-      setSubmitting(false);
+      setBusy(false);
     }
   }
 
-  if (status === "loading") return <SeatGridSkeleton />;
-  if (status === "error") {
-    return <p className="font-mono text-sm text-signal-rust py-4">Couldn&apos;t reach the booking service.</p>;
-  }
+  if (loading) return <Skeleton />;
 
-  const coaches = availability?.coaches ?? [];
-  const totalAvailable = coaches.reduce((n, c) => n + c.seats.filter((s) => s.available).length, 0);
+  const coaches = avail?.coaches ?? [];
+  const totalAvail = coaches.reduce((n, c) => n + c.seats.filter((s) => s.available).length, 0);
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Confirmed tickets */}
-      {confirmedBookings.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {confirmedBookings.map((b) => (
-            <div key={b.id} className="rounded-lg border-2 border-brass bg-white/60 px-5 py-4">
-              <p className="font-mono text-[10px] tracking-[0.15em] uppercase text-brass mb-1">Ticket confirmed</p>
-              <p className="font-display text-xl text-rail-green">
-                {b.coach_number}, Seat {b.seat_number}
-                <span className="ml-2 font-mono text-xs text-ink/50">({CLASS_LABELS[b.coach_class ?? "third"]})</span>
-              </p>
-              <p className="text-ink/70 text-sm">{b.passenger_name} · {b.passenger_type} · {b.origin_name} → {b.dest_name}</p>
-              <p className="font-mono text-xs text-ink/60 mt-1">Rs. {b.fare.toFixed(0)} · booking #{b.id}</p>
-            </div>
-          ))}
-        </div>
-      )}
+    <div className="flex flex-col gap-5">
 
-      {waitlisted ? (
-        <div className="rounded-lg border border-brass/60 bg-white/40 px-5 py-6">
-          <p className="font-display text-xl text-rail-green mb-1">You&apos;re on the waitlist</p>
-          <p className="text-ink/70 text-sm">If a seat frees up, it&apos;s yours automatically — oldest request first.</p>
+      {/* Fare table */}
+      {fares.length > 0 && <FareTableView fares={fares} />}
+
+      {/* Confirmed */}
+      {confirmed.map((b) => (
+        <div key={b.id} className="rounded-xl border-2 border-brass bg-white/60 px-5 py-4">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-brass mb-1">Booking confirmed</p>
+          <p className="font-display text-xl text-rail-green">{b.coach_number}, Seat {b.seat_number}</p>
+          <p className="text-ink/70 text-sm">{b.origin_name} → {b.dest_name} · {b.passenger_type}</p>
+          <p className="font-mono text-xs text-ink/50 mt-1">Rs. {b.fare.toFixed(0)} · #{b.id}</p>
+          <Link href={`/bookings/${b.id}`}
+            className="inline-block mt-3 rounded-md bg-rail-green text-paper px-4 py-1.5 font-mono text-xs hover:opacity-80 transition-opacity">
+            View &amp; print ticket →
+          </Link>
+          <p className="font-mono text-[10px] text-ink/40 mt-1">Find your tickets anytime under Booking History.</p>
         </div>
-      ) : totalAvailable === 0 ? (
-        <div className="rounded-lg border border-signal-rust/40 bg-white/40 px-5 py-4">
-          <p className="text-ink/80 mb-3">No reserved seats are free for this leg.</p>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input type="text" placeholder="Passenger name" value={waitlistName}
-              onChange={(e) => setWaitlistName(e.target.value)}
-              className="flex-1 rounded-md border border-rail-green/25 bg-white/70 px-3 py-2 outline-none focus:border-brass" />
-            <select value={waitlistType} onChange={(e) => setWaitlistType(e.target.value)}
-              className="rounded-md border border-rail-green/25 bg-white/70 px-3 py-2 outline-none focus:border-brass">
-              {PASSENGER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-            <button onClick={handleWaitlist} disabled={submitting || !waitlistName.trim()}
-              className="rounded-md bg-rail-green text-paper px-5 py-2 font-medium disabled:opacity-40 hover:bg-rail-green-dim transition-colors">
-              {submitting ? "Please wait…" : "Join waitlist"}
+      ))}
+
+      {/* Race-loss suggestion */}
+      {suggested && (
+        <div className="rounded-xl border-2 border-brass/50 bg-white/60 px-5 py-4">
+          <p className="font-mono text-xs uppercase tracking-wide text-brass mb-1">Seat just taken</p>
+          <p className="text-ink/80 text-sm mb-3">
+            We found <strong>Seat {suggested.seatNum}</strong> in the same coach — confirm instead?
+          </p>
+          <div className="flex gap-2">
+            <button onClick={book} disabled={busy}
+              className="rounded-md bg-rail-green text-paper px-4 py-2 font-mono text-xs disabled:opacity-40 hover:opacity-80">
+              {busy ? "Booking…" : `Confirm Seat ${suggested.seatNum}`}
+            </button>
+            <button onClick={() => { setSuggested(null); setSelected([]); }}
+              className="rounded-md border border-ink/20 text-ink/60 px-4 py-2 font-mono text-xs hover:border-signal-rust hover:text-signal-rust">
+              Choose differently
             </button>
           </div>
         </div>
-      ) : (
-        <>
-          {coaches.map((coach) => (
-            <CoachMap
-              key={coach.coach_id}
-              coach={coach}
-              selectedSeats={selectedSeats}
-              onToggle={toggleSeat}
-            />
-          ))}
-
-          {selectedSeats.length > 0 && (
-            <div className="flex flex-col gap-3 rounded-lg border border-rail-green/15 bg-white/40 px-4 py-4">
-              <p className="font-mono text-xs tracking-[0.15em] uppercase text-ink/50">
-                {selectedSeats.length} seat{selectedSeats.length > 1 ? "s" : ""} selected
-              </p>
-              {selectedSeats.map((sel) => {
-                const seat = coaches.flatMap((c) => c.seats).find((s) => s.seat_id === sel.seatId);
-                const fare = fareForSeat(sel.seatId, sel.fareAdult);
-                return (
-                  <div key={sel.seatId} className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-xs text-ink/60 w-20 shrink-0">
-                      {seat ? `${seat.coach_number}-${seat.seat_number}` : sel.seatId}
-                    </span>
-                    <input type="text" placeholder="Passenger name"
-                      value={passengerNames[sel.seatId] ?? ""}
-                      onChange={(e) => setPassengerNames((p) => ({ ...p, [sel.seatId]: e.target.value }))}
-                      className="flex-1 min-w-32 rounded-md border border-rail-green/25 bg-white/70 px-3 py-2 outline-none focus:border-brass text-sm" />
-                    <select value={passengerTypes[sel.seatId] ?? "adult"}
-                      onChange={(e) => setPassengerTypes((p) => ({ ...p, [sel.seatId]: e.target.value }))}
-                      className="rounded-md border border-rail-green/25 bg-white/70 px-2 py-2 outline-none focus:border-brass text-sm">
-                      {PASSENGER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
-                    <span className="font-mono text-sm text-brass font-medium w-20 text-right">Rs. {fare}</span>
-                    <button onClick={() => toggleSeat(sel.seatId, sel.coachClass, sel.fareAdult)}
-                      className="text-ink/40 hover:text-signal-rust px-1 text-lg">×</button>
-                  </div>
-                );
-              })}
-              <div className="flex items-center justify-between pt-1 border-t border-rail-green/10">
-                <span className="font-mono text-xs text-ink/50">
-                  Total: Rs. {selectedSeats.reduce((sum, s) => sum + fareForSeat(s.seatId, s.fareAdult), 0)}
-                </span>
-                <button onClick={handleBookAll} disabled={submitting || !allFilled}
-                  className="rounded-md bg-rail-green text-paper px-5 py-2 font-medium disabled:opacity-40 hover:bg-rail-green-dim transition-colors">
-                  {submitting ? "Please wait…" : `Book ${selectedSeats.length} seat${selectedSeats.length > 1 ? "s" : ""}`}
-                </button>
-              </div>
-            </div>
-          )}
-        </>
       )}
 
-      {error && <p className="text-signal-rust text-sm">{error}</p>}
+      {/* Waitlist result */}
+      {waitlisted && (
+        <div className="rounded-xl border border-brass/40 bg-white/40 px-5 py-4">
+          <p className="font-display text-lg text-rail-green mb-1">You&apos;re on the waitlist</p>
+          <p className="font-mono text-sm text-ink/70">
+            You&apos;re <strong>#{waitlisted.pos}</strong> in line for {CLASS_LABELS[waitlisted.cls]}.
+          </p>
+          <p className="font-mono text-xs text-ink/40 mt-1">Your seat will be confirmed automatically if one becomes available.</p>
+        </div>
+      )}
+
+      {/* No seats error — show waitlist CTA */}
+      {error === "no-seats" && !waitlisted && (
+        <div className="rounded-xl border border-signal-rust/30 bg-white/40 px-5 py-4">
+          <p className="text-ink/80 mb-3">No seats available in that class. Join the waitlist?</p>
+          <div className="flex gap-2 flex-wrap">
+            {coaches.map((c) => (
+              <button key={c.coach_id} onClick={() => joinWaitlist(c.class)} disabled={busy}
+                className="rounded-md bg-rail-green text-paper px-4 py-2 font-mono text-xs disabled:opacity-40 hover:opacity-80">
+                {CLASS_LABELS[c.class]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {error && error !== "no-seats" && <p className="text-signal-rust text-sm">{error}</p>}
+
+      {/* All seats taken — show waitlist upfront */}
+      {totalAvail === 0 && !waitlisted && !suggested && confirmed.length === 0 && (
+        <div className="rounded-xl border border-signal-rust/30 bg-white/40 px-5 py-4">
+          <p className="text-ink/80 mb-3">No reserved seats are free for this leg. Join the waitlist by class:</p>
+          <div className="flex gap-2 flex-wrap">
+            {coaches.map((c) => (
+              <button key={c.coach_id} onClick={() => joinWaitlist(c.class)} disabled={busy}
+                className="rounded-md bg-rail-green text-paper px-4 py-2 font-mono text-xs disabled:opacity-40 hover:opacity-80">
+                {CLASS_LABELS[c.class]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Coach maps */}
+      {totalAvail > 0 && !suggested && coaches.map((coach) => (
+        <CoachPanel key={coach.coach_id} coach={coach} selected={selected} onToggle={toggle} />
+      ))}
+
+      {/* Booking summary */}
+      {selected.length > 0 && !suggested && (
+        <div className="rounded-xl border border-rail-green/15 bg-white/40 px-5 py-4 flex flex-col gap-3">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-ink/50">{selected.length} seat{selected.length > 1 ? "s" : ""} selected</p>
+          {selected.map((sel) => {
+            const seat = coaches.flatMap((c) => c.seats).find((s) => s.seat_id === sel.seatId);
+            return (
+              <div key={sel.seatId} className="flex items-center gap-3 flex-wrap">
+                <span className="font-mono text-xs text-ink/60 w-16 shrink-0">{seat ? `${seat.coach_number}-${seat.seat_number}` : `#${sel.seatId}`}</span>
+                <select value={ptypes[sel.seatId] ?? "adult"}
+                  onChange={(e) => setPtypes((p) => ({ ...p, [sel.seatId]: e.target.value }))}
+                  className="rounded-md border border-rail-green/20 bg-white/70 px-2 py-1.5 text-sm outline-none focus:border-brass">
+                  {PTYPES.map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+                </select>
+                <span className="font-mono text-sm text-brass font-medium">Rs. {fare(sel.seatId, sel.coachClass)}</span>
+                <button onClick={() => toggle(sel.seatId, sel.coachClass)} className="text-ink/30 hover:text-signal-rust text-xl ml-auto">×</button>
+              </div>
+            );
+          })}
+          <div className="flex items-center justify-between pt-2 border-t border-rail-green/10">
+            <span className="font-mono text-xs text-ink/50">Total: Rs. {selected.reduce((s, x) => s + fare(x.seatId, x.coachClass), 0)}</span>
+            <button onClick={book} disabled={busy}
+              className="rounded-md bg-rail-green text-paper px-5 py-2 font-medium disabled:opacity-40 hover:opacity-80 transition-opacity">
+              {busy ? "Please wait…" : session ? `Book ${selected.length} seat${selected.length > 1 ? "s" : ""}` : "Sign in to book"}
+            </button>
+          </div>
+          {!session && (
+            <p className="font-mono text-[10px] text-ink/40 text-right">Sign in with Google to complete — your selections are saved.</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function CoachMap({
-  coach,
-  selectedSeats,
-  onToggle,
-}: {
-  coach: CoachWithSeats;
-  selectedSeats: { seatId: number; coachClass: string; fareAdult: number }[];
-  onToggle: (seatId: number, coachClass: string, fareAdult: number) => void;
-}) {
-  const styles = CLASS_STYLES[coach.class] ?? CLASS_STYLES.third;
-  const layout = LAYOUT[coach.class] ?? LAYOUT.third;
-  const { left, right, rows } = layout;
-  const seatsPerRow = left + right;
-  const availableCount = coach.seats.filter((s) => s.available).length;
+function FareTableView({ fares }: { fares: FareCell[] }) {
+  const classes = ["first", "second", "third"] as const;
+  const getF = (cls: string, pt: string) => fares.find((f) => f.class === cls && f.passenger_type === pt)?.fare;
+  return (
+    <div className="rounded-xl border border-rail-green/15 bg-white/40 overflow-hidden">
+      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50 px-4 pt-3 pb-1">Fares for this leg</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-rail-green/10">
+              <th className="text-left px-4 py-2 font-mono text-[10px] text-ink/40 uppercase">Class</th>
+              {PTYPES.map((pt) => (
+                <th key={pt} className="text-right px-3 py-2 font-mono text-[10px] text-ink/40 uppercase">
+                  {pt.charAt(0).toUpperCase() + pt.slice(1)}<br/>
+                  <span className="text-ink/20 normal-case">{PTYPE_MULT[pt]}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {classes.map((cls) => (
+              <tr key={cls} className="border-b border-rail-green/5 last:border-0">
+                <td className="px-4 py-2 text-ink/70">
+                  {CLASS_LABELS[cls]}<br/>
+                  <span className="font-mono text-[10px] text-ink/30">{CLASS_MULT[cls]}</span>
+                </td>
+                {PTYPES.map((pt) => (
+                  <td key={pt} className="text-right px-3 py-2 font-mono text-ink/80">
+                    {getF(cls, pt) !== undefined ? `Rs. ${getF(cls, pt)}` : "—"}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="font-mono text-[9px] text-ink/30 px-4 pb-2 pt-1">Includes demand and time adjustments at current moment.</p>
+    </div>
+  );
+}
 
-  // Seat numbers go left-to-right across a row (L1, L2, | aisle | R1, R2)
-  const seatRows: SeatWithStatus[][] = [];
+function CoachPanel({ coach, selected, onToggle }: {
+  coach: CoachWithSeats;
+  selected: Sel[];
+  onToggle: (id: number, cls: string) => void;
+}) {
+  const st = STYLES[coach.class] ?? STYLES.third;
+  const { left, right, rows } = LAYOUT[coach.class] ?? LAYOUT.third;
+  const seatsPerRow = left + right;
+  const avail = coach.seats.filter((s) => s.available).length;
+  const w = coach.class === "third" ? 88 : 132;
+
+  const grid: SeatWithStatus[][] = [];
   for (let r = 0; r < rows; r++) {
-    const rowSeats: SeatWithStatus[] = [];
-    for (let col = 0; col < seatsPerRow; col++) {
-      const seatIndex = r * seatsPerRow + col;
-      if (seatIndex < coach.seats.length) {
-        rowSeats.push(coach.seats[seatIndex]);
-      }
+    const row: SeatWithStatus[] = [];
+    for (let c = 0; c < seatsPerRow; c++) {
+      const seat = coach.seats[r * seatsPerRow + c];
+      if (seat) row.push(seat);
     }
-    seatRows.push(rowSeats);
+    grid.push(row);
   }
 
   return (
-    <div className={`rounded-xl border px-4 py-4 ${styles.panel}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <span className={`font-mono text-xs font-medium uppercase tracking-wide ${styles.header}`}>
-            {coach.coach_number} — {CLASS_LABELS[coach.class]}
-          </span>
-          <span className="ml-3 font-mono text-xs text-ink/50">{availableCount} available</span>
-        </div>
-        <span className={`font-mono text-sm font-medium ${styles.header}`}>from Rs. {coach.fare_adult}</span>
+    <div className={`rounded-xl border px-4 py-4 ${st.panel}`}>
+      <div className="flex items-center justify-between mb-3">
+        <span className={`font-mono text-xs font-medium uppercase tracking-wide ${st.hdr}`}>
+          {coach.coach_number} — {CLASS_LABELS[coach.class]}
+          <span className="ml-2 font-normal text-ink/40 normal-case">{avail} seats available</span>
+        </span>
+        <span className={`font-mono text-sm font-medium ${st.hdr}`}>from Rs. {coach.fare_adult}</span>
       </div>
-
-      {/* Top-down coach diagram */}
-      <div className="relative rounded-xl border-2 border-ink/15 bg-white/50 overflow-hidden">
-        {/* Coach ends (front/back) */}
-        <div className="h-6 bg-ink/10 flex items-center justify-center">
-          <span className="font-mono text-[9px] uppercase tracking-widest text-ink/40">Front</span>
+      <div className="rounded-xl border-2 border-ink/10 bg-white/50 overflow-hidden">
+        <div className="h-6 bg-ink/[0.06] flex items-center justify-center">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-ink/30">Front</span>
         </div>
-
-        {/* Seat grid centered horizontally inside the full-width coach diagram */}
-        <div className="px-3 py-2 flex flex-col items-center gap-1.5">
+        <div className="px-3 py-2 flex flex-col gap-1">
           {/* Column headers */}
-          <div
-            className="grid items-center text-center w-full"
-              style={{ gridTemplateColumns: `repeat(${left}, ${coach.class === "third" ? 88 : 132}px) 1fr repeat(${right}, ${coach.class === "third" ? 88 : 132}px)` }}
-          >
+          <div className="grid w-full"
+            style={{ gridTemplateColumns: `repeat(${left}, ${w}px) 1fr repeat(${right}, ${w}px)` }}>
             {Array.from({ length: left }).map((_, i) => (
-              <span key={`lh-${i}`} className="font-mono text-[9px] text-ink/30 uppercase">
-                {String.fromCharCode(65 + i)}
-              </span>
+              <span key={i} className="text-center font-mono text-[9px] text-ink/25">{String.fromCharCode(65 + i)}</span>
             ))}
             <span />
             {Array.from({ length: right }).map((_, i) => (
-              <span key={`rh-${i}`} className="font-mono text-[9px] text-ink/30 uppercase">
-                {String.fromCharCode(65 + left + i)}
-              </span>
+              <span key={i} className="text-center font-mono text-[9px] text-ink/25">{String.fromCharCode(65 + left + i)}</span>
             ))}
           </div>
-
-          {seatRows.map((rowSeats, rowIdx) => (
-            <div
-              key={rowIdx}
-              className="grid items-center gap-1 w-full"
-              style={{ gridTemplateColumns: `repeat(${left}, ${coach.class === "third" ? 88 : 132}px) 1fr repeat(${right}, ${coach.class === "third" ? 88 : 132}px)` }}
-            >
-              {rowSeats.slice(0, left).map((seat) => (
-                <SeatButton
-                  key={seat.seat_id}
-                  seat={seat}
-                  isSelected={selectedSeats.some((s) => s.seatId === seat.seat_id)}
-                  styles={styles}
-                  fareAdult={coach.fare_adult}
-                  coachClass={coach.class}
-                  onToggle={onToggle}
-                />
+          {/* Seat rows */}
+          {grid.map((row, ri) => (
+            <div key={ri} className="grid w-full items-center gap-1"
+              style={{ gridTemplateColumns: `repeat(${left}, ${w}px) 1fr repeat(${right}, ${w}px)` }}>
+              {row.slice(0, left).map((seat) => (
+                <Btn key={seat.seat_id} seat={seat} sel={selected.some((s) => s.seatId === seat.seat_id)} cls={coach.class} st={st} onToggle={onToggle} />
               ))}
-              {/* Aisle — fills remaining space dynamically */}
-              <div className="h-full w-full flex items-center justify-center">
-                <div className="w-full h-full border-l border-r border-ink/10 bg-ink/[0.03]" />
-              </div>
-              {rowSeats.slice(left).map((seat) => (
-                <SeatButton
-                  key={seat.seat_id}
-                  seat={seat}
-                  isSelected={selectedSeats.some((s) => s.seatId === seat.seat_id)}
-                  styles={styles}
-                  fareAdult={coach.fare_adult}
-                  coachClass={coach.class}
-                  onToggle={onToggle}
-                />
+              <div className="self-stretch border-l border-r border-ink/10 bg-ink/[0.02]" />
+              {row.slice(left).map((seat) => (
+                <Btn key={seat.seat_id} seat={seat} sel={selected.some((s) => s.seatId === seat.seat_id)} cls={coach.class} st={st} onToggle={onToggle} />
               ))}
             </div>
           ))}
         </div>
-
-        <div className="h-6 bg-ink/10 flex items-center justify-center">
-          <span className="font-mono text-[9px] uppercase tracking-widest text-ink/40">Rear</span>
+        <div className="h-6 bg-ink/[0.06] flex items-center justify-center">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-ink/30">Rear</span>
         </div>
       </div>
-
       {/* Legend */}
-      <div className="flex gap-4 mt-3">
-        <LegendItem color="bg-white border-green-300" label="Available" />
-        <LegendItem color="bg-red-100 border-red-300" label="Booked" />
-        <LegendItem color={`${coach.class === 'first' ? 'bg-amber-600' : coach.class === 'second' ? 'bg-sky-700' : 'bg-emerald-700'} border-transparent`} label="Selected" />
+      <div className="flex gap-4 mt-2">
+        {[
+          { bg: "bg-white border-gray-300", label: "Available" },
+          { bg: "bg-red-100 border-red-200", label: "Booked" },
+          { bg: `${coach.class === "first" ? "bg-amber-600" : coach.class === "second" ? "bg-sky-700" : "bg-emerald-700"} border-transparent`, label: "Selected" },
+        ].map((l) => (
+          <span key={l.label} className="flex items-center gap-1.5 font-mono text-[9px] text-ink/40">
+            <span className={`inline-block w-3 h-3 rounded border ${l.bg}`} />
+            {l.label}
+          </span>
+        ))}
       </div>
     </div>
   );
 }
 
-function LegendItem({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5 font-mono text-[10px] text-ink/50">
-      <span className={`inline-block w-3 h-3 rounded border ${color}`} />
-      {label}
-    </span>
-  );
-}
-
-function SeatButton({
-  seat,
-  isSelected,
-  styles,
-  fareAdult,
-  coachClass,
-  onToggle,
-}: {
-  seat: SeatWithStatus;
-  isSelected: boolean;
-  styles: typeof CLASS_STYLES.first;
-  fareAdult: number;
-  coachClass: string;
-  onToggle: (seatId: number, coachClass: string, fareAdult: number) => void;
+function Btn({ seat, sel, cls, st, onToggle }: {
+  seat: SeatWithStatus; sel: boolean; cls: string;
+  st: Record<string, string>; onToggle: (id: number, cls: string) => void;
 }) {
-  const tooltip = seat.available
-    ? `Seat ${seat.seat_number} — available`
-    : seat.blocked_origin && seat.blocked_dest
+  const tip = !seat.available && seat.blocked_origin && seat.blocked_dest
     ? `Reserved: ${seat.blocked_origin} → ${seat.blocked_dest}`
-    : `Seat ${seat.seat_number} — booked`;
-
+    : !seat.available ? `Seat ${seat.seat_number} — booked` : `Seat ${seat.seat_number}`;
   return (
-    <button
-      onClick={() => { if (seat.available) onToggle(seat.seat_id, coachClass, fareAdult); }}
-      disabled={!seat.available}
-      aria-pressed={isSelected}
-      title={tooltip}
-      className={[
-        "rounded py-2 font-mono text-xs border transition-colors w-full",
-        isSelected
-          ? styles.selected
-          : seat.available
-          ? styles.available
-          : styles.occupied,
-      ].join(" ")}
-    >
+    <button onClick={() => { if (seat.available) onToggle(seat.seat_id, cls); }}
+      disabled={!seat.available} title={tip}
+      className={`rounded py-2 font-mono text-xs border w-full transition-colors ${
+        sel ? st.sel : seat.available ? st.avail : st.occ
+      }`}>
       {seat.seat_number}
     </button>
   );
 }
 
-function SeatGridSkeleton() {
+function Skeleton() {
   return (
     <div className="flex flex-col gap-4 animate-pulse">
+      <div className="h-28 rounded-xl bg-white/40 border border-rail-green/10" />
       {["amber", "sky", "emerald"].map((c) => (
         <div key={c} className="rounded-xl border border-rail-green/10 bg-white/30 px-4 py-4">
-          <div className="h-4 w-48 rounded bg-ink/10 mb-4" />
-          <div className="h-48 rounded-xl bg-ink/5" />
+          <div className="h-4 w-40 rounded bg-ink/10 mb-4" />
+          <div className="h-52 rounded-xl bg-ink/5" />
         </div>
       ))}
     </div>

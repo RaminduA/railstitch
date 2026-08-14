@@ -25,6 +25,19 @@ func (a *API) CreateWaitlistEntry(w http.ResponseWriter, r *http.Request, tripID
 	if req.PassengerType == "" {
 		req.PassengerType = "adult"
 	}
+	if req.UserID == "" {
+		req.UserID = r.Header.Get("X-User-Id")
+	}
+	// Auto fill passenger name from user account
+	if req.PassengerName == "" && req.UserID != "" {
+		var n string
+		if err2 := a.DB.QueryRow(`SELECT name FROM users WHERE id = $1`, req.UserID).Scan(&n); err2 == nil && n != "" {
+			req.PassengerName = n
+		}
+	}
+	if req.PassengerName == "" {
+		req.PassengerName = "Passenger"
+	}
 
 	origin, err := a.getStation(req.OriginStationID)
 	if err != nil {
@@ -55,7 +68,23 @@ func (a *API) CreateWaitlistEntry(w http.ResponseWriter, r *http.Request, tripID
 		writeErr(w, 500, "failed to create waitlist entry")
 		return
 	}
-	writeJSON(w, 201, entry)
+	var queuePos int
+	minSeq, maxSeq := origin.Seq, dest.Seq
+	if minSeq > maxSeq {
+		minSeq, maxSeq = maxSeq, minSeq
+	}
+	_ = a.DB.QueryRow(`
+		SELECT COUNT(*) FROM waitlist_entries
+		WHERE trip_id = $1 AND class = $2 AND status = 'waiting' AND id <= $3`,
+		tripID, req.Class, entry.ID,
+	).Scan(&queuePos)
+	if queuePos == 0 {
+		queuePos = 1
+	}
+	writeJSON(w, 201, map[string]interface{}{
+		"entry":          entry,
+		"queue_position": queuePos,
+	})
 }
 
 func (a *API) ListWaitlist(w http.ResponseWriter, r *http.Request, tripID int) {

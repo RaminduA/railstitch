@@ -87,6 +87,12 @@ export type Booking = {
   dest_arrival_time?: string | null;
 };
 
+export type FareCell = {
+  class: "first" | "second" | "third";
+  passenger_type: "adult" | "child" | "student" | "senior";
+  fare: number;
+};
+
 export type WaitlistEntry = {
   id: number;
   trip_id: number;
@@ -170,7 +176,6 @@ export const api = {
     payload: {
       origin_station_id: number;
       dest_station_id: number;
-      passenger_name: string;
       passenger_type: string;
       seat_id?: number;
       class?: string;
@@ -199,21 +204,26 @@ export const api = {
     payload: {
       origin_station_id: number;
       dest_station_id: number;
-      passenger_name: string;
       passenger_type?: string;
       class?: string;
+      user_id?: string;
     },
   ) =>
-    request<WaitlistEntry>(`/api/trips/${tripId}/waitlist`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
+    request<{ entry: WaitlistEntry; queue_position: number }>(
+      `/api/trips/${tripId}/waitlist`,
+      { method: "POST", body: JSON.stringify(payload) },
+    ),
 
   listWaitlist: (tripId: number) =>
     request<WaitlistEntry[]>(`/api/trips/${tripId}/waitlist`),
 
   getTripSummary: (tripId: number) =>
     request<TripSummary>(`/api/admin/trips/${tripId}/summary`),
+
+  getFareTable: (tripId: number, originId: number, destId: number) =>
+    request<FareCell[]>(
+      `/api/trips/${tripId}/fare-table?origin=${originId}&dest=${destId}`,
+    ),
 
   getUserBookings: (userId: string) =>
     request<Booking[]>(`/api/users/${userId}/bookings`),

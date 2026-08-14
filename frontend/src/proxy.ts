@@ -2,22 +2,22 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-const PASSENGER_ROUTES = ["/trains", "/trips", "/bookings", "/booking-history"];
-const ADMIN_ROUTES = ["/admin"];
-const PROTECTED = [...PASSENGER_ROUTES, ...ADMIN_ROUTES];
+const PASSENGER_ONLY = ["/booking-history"];
+const ADMIN_ONLY = ["/admin"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const needsAuth = PROTECTED.some(
-    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+  const isPassengerOnly = PASSENGER_ONLY.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
   );
-  if (!needsAuth) return NextResponse.next();
+  const isAdminOnly = ADMIN_ONLY.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
 
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
+  if (!isPassengerOnly && !isAdminOnly) return NextResponse.next();
+
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
 
   if (!token) {
     const url = request.nextUrl.clone();
@@ -27,15 +27,13 @@ export async function proxy(request: NextRequest) {
 
   const isAdmin = (token.isAdmin as boolean) ?? false;
 
-  // Passenger trying to access admin routes: redirect to /trains
-  if (ADMIN_ROUTES.some((p) => pathname === p || pathname.startsWith(p + "/")) && !isAdmin) {
+  if (isAdminOnly && !isAdmin) {
     const url = request.nextUrl.clone();
     url.pathname = "/trains";
     return NextResponse.redirect(url);
   }
 
-  // Admin trying to access passenger routes: redirect to /admin
-  if (PASSENGER_ROUTES.some((p) => pathname === p || pathname.startsWith(p + "/")) && isAdmin) {
+  if (isPassengerOnly && isAdmin) {
     const url = request.nextUrl.clone();
     url.pathname = "/admin";
     return NextResponse.redirect(url);
@@ -51,5 +49,6 @@ export const config = {
     "/bookings/:path*",
     "/booking-history",
     "/admin/:path*",
+    "/verify/:path*",
   ],
 };

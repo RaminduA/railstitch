@@ -114,7 +114,7 @@ export default function BookingHistoryPage() {
                       {b.coach_number}, Seat {b.seat_number}
                     </p>
                     <p className="text-ink/70 text-sm truncate">
-                      {b.passenger_name} &middot; {b.origin_name} → {b.dest_name}
+                      {b.origin_name} → {b.dest_name}
                     </p>
                     <p className="font-mono text-xs text-ink/50 mt-1">
                       Rs. {b.fare.toFixed(0)} &middot; booking #{b.id}
@@ -123,14 +123,14 @@ export default function BookingHistoryPage() {
                   </div>
 
                   <div className="shrink-0 flex items-center gap-2">
-                    {/* View ticket — always enabled */}
+                    {/* View ticket: always enabled */}
                     <Link
                       href={`/bookings/${b.id}`}
                       className="rounded-md border border-rail-green/40 text-rail-green px-3 py-1.5 text-sm hover:border-brass hover:text-brass transition-colors"
                     >
                       View ticket
                     </Link>
-                    {/* Cancel — state-aware */}
+                    {/* Cancel: state-aware */}
                     <div title={tooltip || undefined}>
                       {canCancel ? (
                         <button

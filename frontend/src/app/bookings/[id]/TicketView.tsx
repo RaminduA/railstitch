@@ -131,8 +131,14 @@ export function TicketView({ booking, trip, canCancel }: Props) {
             <div className="h-2 rounded-sm" style={{ background: "#C0003A" }} />
           </div>
 
+          {/* Passenger name */}
+          <div className="px-5 pt-3 pb-1">
+            <p className="font-mono text-[9px] uppercase tracking-wide text-ink/40 mb-0.5">Passenger</p>
+            <p className="font-display text-xl text-rail-green leading-tight">{booking.passenger_name}</p>
+          </div>
+
           {/* Journey info */}
-          <div className="px-5 pt-4 pb-3">
+          <div className="px-5 pt-2 pb-3">
             <div className="flex items-end justify-between gap-4">
               <div className="flex-1">
                 <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/40 mb-1">From</p>
@@ -170,10 +176,8 @@ export function TicketView({ booking, trip, canCancel }: Props) {
               <p className="font-mono text-xs text-ink/80 font-medium">{CLASS_NAMES[booking.coach_class ?? "third"]}</p>
             </div>
             <div>
-              <p className="font-mono text-[9px] uppercase tracking-wide text-ink/40">Passenger</p>
-              <p className="font-mono text-xs text-ink/80 font-medium">
-                {booking.passenger_name} &middot; {PASSENGER_LABELS[booking.passenger_type]}
-              </p>
+              <p className="font-mono text-[9px] uppercase tracking-wide text-ink/40">Passenger Type</p>
+              <p className="font-mono text-xs text-ink/80 font-medium">{PASSENGER_LABELS[booking.passenger_type]}</p>
             </div>
             <div>
               <p className="font-mono text-[9px] uppercase tracking-wide text-ink/40">Fare</p>

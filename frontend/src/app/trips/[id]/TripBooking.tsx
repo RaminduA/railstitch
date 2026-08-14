@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import type { Station, Trip, TripStop } from "@/lib/api";
 import { RouteRail } from "@/components/RouteRail";
 import { SeatPicker } from "./SeatPicker";
@@ -12,7 +13,29 @@ type Props = {
 };
 
 export function TripBooking({ trip, stations, stops }: Props) {
+  const { data: session } = useSession();
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [restoredState, setRestoredState] = useState<{ originId: number; destId: number } | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Restore booking state after OAuth redirect
+  useEffect(() => {
+    if (!session) return;
+    const raw = sessionStorage.getItem("railstitch:booking");
+    if (!raw) return;
+    try {
+      const saved = JSON.parse(raw) as { tripId: number; originId: number; destId: number };
+      if (saved.tripId !== trip.id) return;
+      sessionStorage.removeItem("railstitch:booking");
+      const oids = [saved.originId, saved.destId];
+      queueMicrotask(() => {
+        setSelectedIds(oids);
+        setRestoredState({ originId: saved.originId, destId: saved.destId });
+        setToastMsg("Welcome back — your selections are saved.");
+      });
+      setTimeout(() => setToastMsg(null), 4000);
+    } catch { /* ignore */ }
+  }, [session, trip.id]);
 
   const stopMap = new Map(stops.map((s) => [s.station_id, s]));
   const stationMap = new Map(stations.map((s) => [s.id, s]));
@@ -61,6 +84,11 @@ export function TripBooking({ trip, stations, stops }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
+      {toastMsg && (
+        <div className="rounded-lg bg-rail-green text-paper px-4 py-3 font-mono text-sm animate-fade-in">
+          {toastMsg}
+        </div>
+      )}
       <div className="rounded-xl border border-rail-green/15 bg-white/40 px-4 py-5">
         <div className="flex items-center justify-between mb-4">
           <p className="font-mono text-xs tracking-[0.15em] uppercase text-ink/50">
